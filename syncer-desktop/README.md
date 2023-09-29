@@ -1,10 +1,5 @@
 # syncer-desktop
 
-## 环境要求
-```
-NodeJS v16
-```
-
 ## Project setup
 ```
 npm install
