@@ -4,8 +4,7 @@ module.exports = {
     node: true
   },
   extends: [
-    'plugin:vue/vue3-essential',
-    '@vue/standard'
+    'plugin:vue/vue3-essential'
   ],
   parserOptions: {
     parser: '@babel/eslint-parser'
@@ -15,5 +14,6 @@ module.exports = {
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'comma-dangle': [0],
     'no-trailing-spaces': [0],
+    'vue/multi-word-component-names': [0]
   }
 }

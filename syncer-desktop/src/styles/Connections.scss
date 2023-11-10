@@ -1,0 +1,64 @@
+@import "@/styles/themes";
+
+.page {
+  padding: 16px;
+}
+
+.my-device-name {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+
+  .edit {
+    color: $brand-color;
+  }
+}
+
+.available-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.available-devices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 0;
+}
+
+.available-device {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  .left {
+    font-size: 32px;
+  }
+
+  .middle {
+    .device-name {
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .device-address {
+      color: $secondary-text-color;
+    }
+  }
+
+  .right {
+    margin-left: auto;
+  }
+}
+
+
+.tip {
+  margin-top: 32px;
+  color: $tip-text-color;
+  text-align: center;
+}
+
+.text-loading {
+  margin-left: 8px;
+}
