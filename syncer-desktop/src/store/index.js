@@ -2,7 +2,7 @@ import { createStore } from 'vuex'
 import { v4 } from 'uuid'
 import { randomNumber } from '@/utils/random'
 import { setStorage, getStorage } from '@/utils/storage'
-import { closeTcpServer, connectTcpServer, openTcpServer, sendTcpData } from '@/service/tcpService'
+import { closeTcpServer, closeTcpSocket, connectTcpServer, openTcpServer, sendTcpData } from '@/service/tcpService'
 import { sendUdpData } from '@/service/udpService'
 import { getIpAddress } from '@/service/ipService'
 
@@ -72,6 +72,13 @@ export default createStore({
       })
       commit('setTarget', device)
       commit('setStatus', 'connected')
+    },
+
+    /** 断开连接 */
+    async disconnect({ commit, state }) {
+      closeTcpSocket()
+      commit('setTarget', null)
+      commit('setStatus', 'available')
     },
   },
   modules: {}

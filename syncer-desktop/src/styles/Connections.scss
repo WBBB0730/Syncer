@@ -7,11 +7,15 @@
 .my-device-name {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
 
   .edit {
     color: $brand-color;
   }
+}
+
+.my-device-ip {
+  margin-bottom: 16px;
+  color: $tip-text-color;
 }
 
 .available-title {

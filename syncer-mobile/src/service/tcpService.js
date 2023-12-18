@@ -1,5 +1,7 @@
 import net from 'react-native-tcp-socket'
 import store from '../store'
+import { showTextModal } from '../components/TextModal'
+import Clipboard from '@react-native-clipboard/clipboard'
 
 
 let tcpSocket = null
@@ -8,7 +10,7 @@ const server = net.createServer((socket) => {
     return
   socket.once('data', (data) => {
     data = parseData(data)
-    console.log(data)
+    console.log(`TCP: receive`, data)
     if (!data || data.type !== 'accept')
       return
     handleAccept(socket, data)
@@ -30,14 +32,40 @@ function closeTcpServer() {
 function connectTcpServer({ port, address }) {
   return new Promise(resolve => {
     tcpSocket = new net.Socket()
-    tcpSocket.connect({ port, host: address }, () => { resolve() })
+    tcpSocket.connect({ port, host: address }, () => {
+      tcpSocketHandler()
+      resolve()
+    })
   })
+}
+
+function closeTcpSocket() {
+  if (tcpSocket === null)
+    return
+  tcpSocket.destroy()
+  tcpSocket = null
 }
 
 function sendTcpData(data) {
   if (tcpSocket === null)
     return
   tcpSocket.write(JSON.stringify(data))
+  console.log('TCP: send', data)
+}
+
+function tcpSocketHandler() {
+  tcpSocket.on('data', (data) => {
+    data = parseData(data)
+    if (!data)
+      return
+    console.log('TCP: receive', data)
+    switch (data.type) {
+      case 'text':
+        return handleText(data)
+      case 'disconnect':
+        return handleDisconnect()
+    }
+  })
 }
 
 function parseData(data) {
@@ -57,28 +85,28 @@ function handleAccept(socket, data) {
     return
   }
   const { port, address } = socket.address()
-  console.log(socket.address())
+  console.log('TCP connected', socket.address())
   tcpSocket = socket
   store.setTarget({ ...store.target, port, address })
   store.setStatus('connected')
-  socket.on('data', (data) => {
-    data = parseData(data)
-    if (!data)
-      return
-    console.log(`TCP: receive from ${ address }:${ port }`, data)
-    switch (data.type) {
-      case 'text':
-        return handleText()
-    }
-  })
+  tcpSocketHandler()
+  closeTcpServer().then()
 }
 
-function handleText() {}
+function handleDisconnect() {
+  store.disconnect()
+}
+
+function handleText({ content }) {
+  Clipboard.setString(content)
+  showTextModal(content)
+}
 
 export {
   openTcpServer,
   closeTcpServer,
   connectTcpServer,
+  closeTcpSocket,
   sendTcpData,
 }
 

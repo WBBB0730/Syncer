@@ -3,7 +3,7 @@
     <div class="app">
       <a-menu class="nav" :selected-keys="[routeName]" :items="[
         { key: 'connections', icon: () => h(WifiOutlined), label: '连接' },
-        { key: 'settings', icon: () => h(SettingOutlined), label: '设置' },
+        // { key: 'settings', icon: () => h(SettingOutlined), label: '设置' },
       ]" @click="handleSwitchTab" />
       <div class="page">
         <keep-alive>

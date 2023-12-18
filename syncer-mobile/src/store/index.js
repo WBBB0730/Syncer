@@ -3,7 +3,7 @@ import { randomNumber } from '../utils/random'
 import uuid from 'react-native-uuid'
 import { getStorage, setStorage } from '../utils/storage'
 import { sendUdpData } from '../service/udpService'
-import { closeTcpServer, connectTcpServer, openTcpServer, sendTcpData } from '../service/tcpService'
+import { closeTcpServer, closeTcpSocket, connectTcpServer, openTcpServer, sendTcpData } from '../service/tcpService'
 
 class Store {
   uuid = uuid.v4()
@@ -54,6 +54,7 @@ class Store {
     this.setTarget(null)
   }
 
+  /** 接收连接请求 */
   async accept(device) {
     await connectTcpServer(device)
     sendTcpData({
@@ -62,6 +63,12 @@ class Store {
     })
     store.setTarget(device)
     store.setStatus('connected')
+  }
+
+  disconnect() {
+    closeTcpSocket()
+    store.setTarget(null)
+    store.setStatus('available')
   }
 }
 

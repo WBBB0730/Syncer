@@ -1,12 +1,23 @@
 <template>
   <div class="my-device-name">
-    <h1>{{ name }}</h1>
-    <a-button type="text">
-      <template #icon>
-        <EditOutlined class="edit" />
-      </template>
-    </a-button>
+    <template v-if="!editingName">
+      <h1>{{ name }}</h1>
+      <a-button type="text" @click="editName">
+        <template #icon>
+          <EditOutlined class="edit" />
+        </template>
+      </a-button>
+    </template>
+    <template v-else>
+      <a-input v-model:value="inputName" />
+      <a-button type="text" @click="saveName">
+        <template #icon>
+          <CheckOutlined class="edit" />
+        </template>
+      </a-button>
+    </template>
   </div>
+  <div class="my-device-ip">{{ ipAddress }}</div>
 
   <div class="available-title">
     <div>可用设备</div>
@@ -43,11 +54,29 @@
 import { sendUdpData } from '@/service/udpService'
 import { useStore } from 'vuex'
 import { computed, ref } from 'vue'
-import { DesktopOutlined, MobileOutlined, QuestionOutlined, EditOutlined } from '@ant-design/icons-vue'
+import { DesktopOutlined, MobileOutlined, QuestionOutlined, EditOutlined, CheckOutlined } from '@ant-design/icons-vue'
 import sleep from '@/utils/sleep'
+import { getIpAddress } from '@/service/ipService'
 
 const store = useStore()
+
 const name = computed(() => store.state.name)
+const editingName = ref(false)
+const inputName = ref('')
+
+function editName() {
+  editingName.value = true
+  inputName.value = name.value
+}
+
+function saveName() {
+  if (!inputName.value)
+    return
+  store.commit('setName', inputName.value)
+  editingName.value = false
+}
+
+const ipAddress = ref(getIpAddress())
 
 const availableDeviceList = computed(() => {
   const availableDeviceList = []
