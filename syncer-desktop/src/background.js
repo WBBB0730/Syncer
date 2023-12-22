@@ -4,6 +4,7 @@ import { app, protocol, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import installExtension, { VUEJS3_DEVTOOLS } from 'electron-devtools-installer'
 const path = require('path')
+require('@electron/remote/main').initialize()
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
@@ -48,6 +49,7 @@ async function createWindow () {
     await win.loadURL('app://./index.html')
   }
 
+  require('@electron/remote/main').enable(win.webContents)
 }
 
 let tray

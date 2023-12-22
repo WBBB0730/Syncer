@@ -8,8 +8,6 @@ import { getIpAddress } from '@/service/ipService'
 
 export default createStore({
   state: {
-    route: 'connections',
-
     uuid: v4(),
     status: 'available',    // available、connecting、connected
     name: initName(),

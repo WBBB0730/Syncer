@@ -1,17 +1,12 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import Connections from '@/views/Connections.vue'
-import Settings from '@/views/Settings.vue'
+import Connections from '@/views/Connection.vue'
 
 const routes = [
   {
     path: '/',
     name: 'connections',
-    component: Connections  },
-  {
-    path: '/settings',
-    name: 'settings',
-    component: Settings
-  }
+    component: Connections
+  },
 ]
 
 const router = createRouter({

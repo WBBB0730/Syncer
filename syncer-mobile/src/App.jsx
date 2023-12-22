@@ -5,46 +5,64 @@
  * @format
  */
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { ScrollView, StatusBar, StyleSheet, View, } from 'react-native'
 
 import './service/udpService'
-import { NavigationContainer } from '@react-navigation/native'
-import Connections from './screens/Connections'
 import Connection from './screens/Connection'
+import Send from './screens/Send'
 import { createTheme, ThemeProvider } from '@rneui/themed'
 import theme from './styles/theme'
-import ConnectModal from './components/ConnectModal'
-import ConnectingModal from './components/ConnectingModal'
-import RefuseModal from './components/RefuseModal'
-import TextModal from './components/TextModal'
 import store from './store'
 import { observer } from 'mobx-react'
+import Modal from './components/Modal'
 
 const elementsTheme = createTheme({
   mode: 'light',
   lightColors: {
     primary: theme.brandColor,
   },
+  components: {
+    Button: {
+      buttonStyle: {
+        borderRadius: 6,
+      }
+    },
+    ButtonGroup: {
+      containerStyle: {
+        borderRadius: 6,
+      }
+    },
+    Input: {
+      containerStyle: {
+        paddingVertical: 0,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderRadius: 6,
+        borderColor: theme.borderColor
+      },
+      inputContainerStyle: {
+        borderBottomWidth: 0,
+      },
+      errorStyle: {
+        display: 'none',
+      }
+    }
+  }
 })
 
 const Page = observer(() => (
   <View style={ styles.page }>
-    { store.status === 'connected' ? <Connection /> : <Connections /> }
+    { store.status === 'connected' ? <Send /> : <Connection /> }
   </View>
 ))
 
 function App() {
   return (
     <ThemeProvider theme={ elementsTheme }>
-      {/*<NavigationContainer>*/ }
       <StatusBar barStyle="dark-content" backgroundColor="#fafafa" />
       <Page />
-      <ConnectingModal />
-      <ConnectModal />
-      <RefuseModal />
-      <TextModal />
-      {/*</NavigationContainer>*/ }
+      <Modal />
     </ThemeProvider>
   )
 }

@@ -1,8 +1,9 @@
 import dgram from 'react-native-udp'
 import store from '../store'
-import { showConnectModal } from '../components/ConnectModal'
-import { showRefuseModal } from '../components/RefuseModal'
 import sleep from '../utils/sleep'
+import { Modal, modalStyles } from '../components/Modal'
+import { Button } from '@rneui/base'
+import { Text, View } from 'react-native'
 
 const udpSocket = dgram.createSocket({ type: 'udp4' })
 udpSocket.bind(5742)
@@ -59,7 +60,32 @@ function handleAvailable({ uuid, name, device }, port, address) {
 
 /** 处理type为connect的UDP数据 */
 function handleConnect({ uuid, name, device }, port, address) {
-  showConnectModal({ uuid, name, device, port, address })
+  const refuse = () => {
+    sendUdpData({ type: 'refuse' }, port, address)
+    Modal.hide()
+  }
+
+  const accept = async () => {
+    await store.accept({ uuid, name, device, port, address })
+    Modal.hide()
+  }
+
+  Modal.show({
+    title: '连接请求',
+    content: (
+      <Text>{ name } 请求与你建立连接</Text>
+    ),
+    footer: (
+      <>
+        <View style={ { flexGrow: 1 } }>
+          <Button type="outline" onPress={ refuse }>拒绝</Button>
+        </View>
+        <View style={ modalStyles.button }>
+          <Button onPress={ accept }>接受</Button>
+        </View>
+      </>
+    )
+  })
 }
 
 /** 处理type为refuse的UDP数据 */
@@ -67,7 +93,17 @@ function handleRefuse({ uuid, name, device }, port, address) {
   if (store.status !== 'connecting' || store.target.uuid !== uuid) {
     return
   }
-  showRefuseModal({ uuid, name, device, port, address })
+  Modal.show({
+    title: '连接失败',
+    content: (
+      <Text>{ name } 拒绝了你的连接请求</Text>
+    ),
+    footer: (
+      <View style={ modalStyles.button }>
+        <Button onPress={ Modal.hide }>确定</Button>
+      </View>
+    )
+  })
   store.cancel()
 }
 

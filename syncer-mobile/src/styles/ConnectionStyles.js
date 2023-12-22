@@ -4,10 +4,30 @@ import theme from './theme'
 
 export default StyleSheet.create({
   myDeviceName: {
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 16,
+  },
+  myDeviceNameText: {
     color: theme.mainTextColor,
     fontSize: 28,
     fontWeight: 'bold',
+  },
+  inputName: {
+    width: 200,
+    height: 32,
+    paddingVertical:0,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 6,
+    color: theme.secondaryTextColor,
+    fontSize: 16,
+  },
+  myIpAddress: {
+    color: theme.tipTextColor,
+    marginBottom: 16,
   },
   availableTitle: {
     display: 'flex',
@@ -20,15 +40,28 @@ export default StyleSheet.create({
     fontSize: 14,
   },
   searchButton: {
-    borderRadius: 6,
     padding: 0,
     width: 64,
+    height: 32,
+    borderColor: theme.buttonBorderColor,
+  },
+  manualSearchButton: {
+    padding: 0,
     height: 32,
     borderColor: theme.buttonBorderColor,
   },
   searchButtonText: {
     color: theme.secondaryTextColor,
     fontSize: 14,
+  },
+  inputIpAddress: {
+    height: 32,
+    paddingVertical: 0,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderRadius: 6,
+    borderColor: theme.borderColor,
+    color: theme.secondaryTextColor,
   },
   availableDevices: {
     paddingVertical: 16,
