@@ -7,7 +7,7 @@ import { observer } from 'mobx-react'
 import styles from '../styles/ConnectionStyles'
 import Icon from 'react-native-vector-icons/AntDesign'
 import theme from '../styles/theme'
-import { getIpAddress } from '../service/ipService'
+import { getIpAddress } from '../utils/ip'
 import sleep from '../utils/sleep'
 import { Modal, modalStyles } from '../components/Modal'
 

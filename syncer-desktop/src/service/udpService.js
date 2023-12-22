@@ -1,6 +1,5 @@
 import store from '@/store'
 import dgram from 'dgram'
-import { getIpAddress } from './ipService'
 import { DesktopOutlined, MobileOutlined, QuestionOutlined, EditOutlined } from '@ant-design/icons-vue'
 import { Modal } from 'ant-design-vue'
 import { h } from 'vue'

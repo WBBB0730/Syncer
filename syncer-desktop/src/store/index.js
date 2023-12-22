@@ -4,7 +4,6 @@ import { randomNumber } from '@/utils/random'
 import { setStorage, getStorage } from '@/utils/storage'
 import { closeTcpServer, closeTcpSocket, connectTcpServer, openTcpServer, sendTcpData } from '@/service/tcpService'
 import { sendUdpData } from '@/service/udpService'
-import { getIpAddress } from '@/service/ipService'
 
 export default createStore({
   state: {

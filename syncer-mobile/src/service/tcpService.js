@@ -70,7 +70,6 @@ function initTcpSocket() {
 }
 
 let queue = ''
-
 function parseData(data) {
   data = queue + data.toString()
   if (data.endsWith('^')) {

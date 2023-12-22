@@ -76,7 +76,7 @@ import {
   CloseOutlined
 } from '@ant-design/icons-vue'
 import sleep from '@/utils/sleep'
-import { getIpAddress } from '@/service/ipService'
+import { getIpAddress } from '@/utils/ip'
 
 const store = useStore()
 
