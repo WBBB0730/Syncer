@@ -1,6 +1,6 @@
 import net from 'net'
 import store from '@/store'
-import { Modal } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import { dialog, webContents } from '@electron/remote'
 import fs from 'fs/promises'
 import { h } from 'vue'
@@ -57,7 +57,7 @@ function initTcpSocket() {
     data = parseData(data)
     if (!data)
       return
-    console.log('TCP: receive', data)
+    console.log('TCP: receive', data.type === 'file' ? { type: 'file', content: data.content.map(file => file.name) } : data)
     switch (data.type) {
       case 'text':
         return handleText(data)
@@ -66,6 +66,10 @@ function initTcpSocket() {
       case 'disconnect':
         return handleDisconnect()
     }
+  })
+  tcpSocket.on('close', () => {
+    handleDisconnect()
+    message.error('连接中断')
   })
 }
 
@@ -97,7 +101,7 @@ function sendTcpData(data) {
       return
     }
     tcpSocket.write(JSON.stringify(data) + '^', 'utf8', resolve)
-    console.log(`TCP: send`, data)
+    console.log(`TCP: send`, data.type === 'file' ? { type: 'file', content: data.content.map(file => file.name) } : data)
   })
 }
 

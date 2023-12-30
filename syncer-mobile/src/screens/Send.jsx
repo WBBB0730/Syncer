@@ -137,7 +137,7 @@ const SendFile = () => {
           { files.map((file, index) => (
             <View key={ index } style={ styles.fileListItem }>
               <Text>{ file.name }</Text>
-              <Icon name="delete" size={ 16 } onPress={ () => { removeFile(file) } } />
+              <Icon style={styles.fileListItemDelete} name="delete" size={ 16 } onPress={ () => { removeFile(file) } } />
             </View>
           )) }
         </ScrollView>

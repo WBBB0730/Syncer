@@ -48,11 +48,12 @@ export default StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 16,
     padding: 8,
     borderTopWidth: 1,
     borderColor: theme.borderColor,
   },
-  fileListItemText: {
-
+  fileListItemDelete: {
+    flexShrink: 0,
   },
 })

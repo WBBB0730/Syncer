@@ -57,7 +57,7 @@ function initTcpSocket() {
     data = parseData(data)
     if (!data)
       return
-    console.log('TCP: receive', data)
+    console.log('TCP: receive', data.type === 'file' ? { type: 'file', content: data.content.map(file => file.name) } : data)
     switch (data.type) {
       case 'text':
         return handleText(data)
@@ -66,6 +66,10 @@ function initTcpSocket() {
       case 'disconnect':
         return handleDisconnect()
     }
+  })
+  tcpSocket.on('close', () => {
+    handleDisconnect()
+    ToastAndroid.show('连接中断', ToastAndroid.SHORT)
   })
 }
 
@@ -96,7 +100,7 @@ async function sendTcpData(data) {
       return
     }
     tcpSocket.write(JSON.stringify(data) + '^', 'utf8', resolve)
-    console.log(`TCP: send`, data)
+    console.log(`TCP: send`, data.type === 'file' ? { type: 'file', content: data.content.map(file => file.name) } : data)
   })
 }
 

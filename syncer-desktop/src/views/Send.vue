@@ -30,6 +30,7 @@ import { sendTcpData } from '@/service/tcpService'
 import { useStore } from 'vuex'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { fileToBase64, randomFileName } from '@/utils/file'
+import { message } from 'ant-design-vue'
 
 const store = useStore()
 
@@ -55,6 +56,7 @@ async function sendText() {
   })
   sendingText.value = false
   text.value = ''
+  message.success('发送成功')
 }
 
 const files = reactive([])
@@ -82,6 +84,7 @@ async function sendFile() {
   })
   sendingFile.value = false
   files.length = 0
+  message.success('发送成功')
 }
 
 </script>
