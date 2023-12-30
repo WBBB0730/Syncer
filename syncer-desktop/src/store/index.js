@@ -18,13 +18,6 @@ export default createStore({
   mutations: {
     /**
      * @param state
-     * @param { 'connections' | 'settings' } route
-     */
-    setRoute(state, route) {
-      state.route = route
-    },
-    /**
-     * @param state
      * @param { 'available' | 'connecting' | 'connected' } status
      */
     setStatus(state, status) {
