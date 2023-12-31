@@ -18,6 +18,10 @@
   }
 }
 
+:deep(.receive-history__show-button) {
+  margin-left: auto;
+}
+
 .my-device-ip {
   margin-bottom: 16px;
   color: $tip-text-color;

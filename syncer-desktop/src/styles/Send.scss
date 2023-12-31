@@ -6,6 +6,10 @@
   margin-bottom: 16px;
 }
 
+:deep(.receive-history__show-button) {
+  margin-left: auto;
+}
+
 .select-type {
   margin-bottom: 16px;
 }

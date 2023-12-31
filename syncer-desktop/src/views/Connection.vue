@@ -7,6 +7,7 @@
           <EditOutlined class="icon" />
         </template>
       </a-button>
+      <ReceiveHistory />
     </template>
 
     <template v-else>
@@ -77,6 +78,7 @@ import {
 } from '@ant-design/icons-vue'
 import sleep from '@/utils/sleep'
 import { getIpAddress } from '@/utils/ip'
+import ReceiveHistory from "@/components/ReceiveHistory.vue";
 
 const store = useStore()
 
