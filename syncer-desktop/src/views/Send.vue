@@ -2,6 +2,7 @@
   <div class="target">
     <h1>{{ targetName }}</h1>
     <a-button @click="disconnect">断开连接</a-button>
+    <ReceiveHistory />
   </div>
   <a-segmented v-model:value="type" class="select-type" :options="[
     { value: 'text', label: '发送文本' },
@@ -31,6 +32,7 @@ import { useStore } from 'vuex'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { fileToBase64, randomFileName } from '@/utils/file'
 import { message } from 'ant-design-vue'
+import ReceiveHistory from "@/components/ReceiveHistory.vue";
 
 const store = useStore()
 

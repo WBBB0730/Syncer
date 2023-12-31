@@ -161,8 +161,12 @@ function handleFile({ content }) {
         return Promise.reject('')
       const path = res[0]
       setStorage('filePath', path)
-      for (const file of content)
-        await fs.writeFile(path + '/' + file.name, file.data, { encoding: 'base64' })
+      const receiveHistory = getStorage('receiveHistory') || []
+      for (const file of content) {
+        await fs.writeFile(path + '/' + file.name, file.data, {encoding: 'base64'})
+        receiveHistory.unshift({ name: file.name, path, time: Date.now() })
+      }
+      setStorage('receiveHistory', receiveHistory)
     },
     centered: true,
   })
