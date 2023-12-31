@@ -68,12 +68,12 @@ import { sendUdpData } from '@/service/udpService'
 import { useStore } from 'vuex'
 import { computed, nextTick, ref } from 'vue'
 import {
-  DesktopOutlined,
-  MobileOutlined,
-  QuestionOutlined,
-  EditOutlined,
   CheckOutlined,
-  CloseOutlined
+  CloseOutlined,
+  DesktopOutlined,
+  EditOutlined,
+  MobileOutlined,
+  QuestionOutlined
 } from '@ant-design/icons-vue'
 import sleep from '@/utils/sleep'
 import { getIpAddress } from '@/utils/ip'

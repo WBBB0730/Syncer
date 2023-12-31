@@ -1,6 +1,6 @@
 import store from '@/store'
 import dgram from 'dgram'
-import { DesktopOutlined, MobileOutlined, QuestionOutlined, EditOutlined } from '@ant-design/icons-vue'
+import { DesktopOutlined, MobileOutlined, QuestionOutlined } from '@ant-design/icons-vue'
 import { Modal } from 'ant-design-vue'
 import { h } from 'vue'
 
@@ -31,7 +31,7 @@ udpSocket.on('message', (msg, { port, address }) => {
     case 'connect':
       return handleConnect(data, port, address)
     case 'refuse':
-      return handleRefuse(data, port, address)
+      return handleRefuse(data)
   }
 })
 
@@ -75,14 +75,14 @@ function handleConnect({ uuid, name, device }, port, address) {
     onCancel: () => {
       sendUdpData({ type: 'refuse' }, port, address)
     },
-    onOk: () => {
-      store.dispatch('accept', { uuid, name, device, port, address })
+    onOk: async () => {
+      await store.dispatch('accept', { uuid, name, device, port, address })
     }
   })
 }
 
 /** 处理type为refuse的UDP数据 */
-async function handleRefuse({ uuid, name, device }, port, address) {
+async function handleRefuse({ uuid, name }) {
   if (store.state.status !== 'connecting' || store.state.target.uuid !== uuid) {
     return
   }

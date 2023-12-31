@@ -11,7 +11,7 @@
 </template>
 
 <script setup>
-import { computed, h } from 'vue'
+import { computed } from 'vue'
 import Connections from '@/views/Connection.vue'
 import Connection from '@/views/Send.vue'
 import { useStore } from 'vuex'

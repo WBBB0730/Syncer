@@ -1,7 +1,7 @@
 import net from 'net'
 import store from '@/store'
 import { message, Modal } from 'ant-design-vue'
-import { dialog, webContents } from '@electron/remote'
+import { dialog } from '@electron/remote'
 import { ipcRenderer } from 'electron'
 import fs from 'fs/promises'
 import { h } from 'vue'
