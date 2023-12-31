@@ -42,12 +42,12 @@ const Target = observer(() => {
 })
 
 
-const typeList = ['text', 'file']
+const typeList = ['text', 'file', 'command']
 const SelectType = ({ type, setType }) => {
   return (
     <ButtonGroup
       selectedIndex={ typeList.indexOf(type) }
-      buttons={ ['发送文本', '发送文件'] }
+      buttons={ ['发送文本', '发送文件', '发送指令'] }
       containerStyle={ styles.selectType }
       onPress={ (index) => { setType(typeList[index]) } } />
   )
@@ -59,6 +59,8 @@ const SendContent = ({ type }) => {
       return <SendText />
     case 'file':
       return <SendFile />
+    case 'command':
+      return <SendCommand />
   }
 }
 
@@ -143,6 +145,36 @@ const SendFile = () => {
         </ScrollView>
       }
       <Button disabled={ !files.length } loading={ sendingFile } onPress={ sendFile }>发送</Button>
+    </>
+  )
+}
+
+const SendCommand = () => {
+  async function sendCommand(key) {
+    await sendTcpData({
+      type: 'command',
+      content: key
+    })
+  }
+
+  return (
+    <>
+      <View style={ styles.commandButtonWrap }>
+        <Text style={ [styles.commandButton, styles.arrowUpButton] }
+              onPress={ () => sendCommand('up') }>↑</Text>
+        <Text style={ [styles.commandButton, styles.arrowDownButton] }
+              onPress={ () => sendCommand('down') }>↓</Text>
+        <Text style={ [styles.commandButton, styles.arrowLeftButton] }
+              onPress={ () => sendCommand('left') }>←</Text>
+        <Text style={ [styles.commandButton, styles.arrowRightButton] }
+              onPress={ () => sendCommand('right') }>→</Text>
+        <Text style={ [styles.commandButton, styles.spaceButton] }
+              onPress={ () => sendCommand('space') }>SPACE</Text>
+        <Text style={ [styles.commandButton, styles.escapeButton] }
+              onPress={ () => sendCommand('escape') }>ESC</Text>
+        <Text style={ [styles.commandButton, styles.f5Button] }
+              onPress={ () => sendCommand('f5') }>F5</Text>
+      </View>
     </>
   )
 }

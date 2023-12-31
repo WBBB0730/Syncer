@@ -59,12 +59,12 @@ function initTcpSocket() {
       return
     console.log('TCP: receive', data.type === 'file' ? { type: 'file', content: data.content.map(file => file.name) } : data)
     switch (data.type) {
+      case 'disconnect':
+        return handleDisconnect()
       case 'text':
         return handleText(data)
       case 'file':
         return handleFile(data)
-      case 'disconnect':
-        return handleDisconnect()
     }
   })
   tcpSocket.on('close', () => {

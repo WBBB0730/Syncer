@@ -2,6 +2,7 @@ import net from 'net'
 import store from '@/store'
 import { message, Modal } from 'ant-design-vue'
 import { dialog, webContents } from '@electron/remote'
+import { ipcRenderer } from 'electron'
 import fs from 'fs/promises'
 import { h } from 'vue'
 import { getStorage, setStorage } from '@/utils/storage'
@@ -59,12 +60,14 @@ function initTcpSocket() {
       return
     console.log('TCP: receive', data.type === 'file' ? { type: 'file', content: data.content.map(file => file.name) } : data)
     switch (data.type) {
+      case 'disconnect':
+        return handleDisconnect()
       case 'text':
         return handleText(data)
       case 'file':
         return handleFile(data)
-      case 'disconnect':
-        return handleDisconnect()
+      case 'command':
+        return handleCommand(data)
     }
   })
   tcpSocket.on('close', () => {
@@ -150,7 +153,7 @@ function handleFile({ content }) {
     okText: '保存',
     onOk: async () => {
       const res = dialog.showOpenDialogSync({
-        title: '测试',
+        title: '保存文件',
         defaultPath: getStorage('filePath') || undefined,
         properties: ['openDirectory']
       })
@@ -163,6 +166,10 @@ function handleFile({ content }) {
     },
     centered: true,
   })
+}
+
+function handleCommand({ content }) {
+  ipcRenderer.send('pressKey', content)
 }
 
 export {

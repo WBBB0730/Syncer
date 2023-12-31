@@ -5,8 +5,8 @@
  * @format
  */
 
-import React, { useEffect } from 'react'
-import { ScrollView, StatusBar, StyleSheet, View, } from 'react-native'
+import React from 'react'
+import { StatusBar, StyleSheet, View, } from 'react-native'
 
 import './service/udpService'
 import Connection from './screens/Connection'

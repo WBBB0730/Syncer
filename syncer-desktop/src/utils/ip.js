@@ -5,7 +5,6 @@ function getIpAddress() {
   const interFaces = os.networkInterfaces()
   let address
   const addressList = []
-  console.log(Object.keys(interFaces))
   for (const interFace in interFaces) {
     interFaces[interFace].forEach((details) => {
       if (details.family === 'IPv4' && !details.internal) {

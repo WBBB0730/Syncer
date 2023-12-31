@@ -1,8 +1,7 @@
 import { Overlay } from '@rneui/base'
-import { Text, View, StyleSheet, ScrollView } from 'react-native'
+import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import theme from '../styles/theme'
-import { useState } from 'react'
-import React from 'react'
+import React, { useState } from 'react'
 
 const Modal = {}
 

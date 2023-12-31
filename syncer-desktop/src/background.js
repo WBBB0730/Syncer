@@ -1,8 +1,8 @@
 'use strict'
 
-import { app, protocol, BrowserWindow, Menu, Tray, nativeImage } from 'electron'
+import { app, protocol, BrowserWindow, Menu, Tray, nativeImage, ipcMain } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
-import installExtension, { VUEJS3_DEVTOOLS } from 'electron-devtools-installer'
+import robotjs from 'robotjs'
 const path = require('path')
 require('@electron/remote/main').initialize()
 
@@ -54,7 +54,8 @@ async function createWindow () {
 
 let tray
 function createTray() {
-  const icon = nativeImage.createFromPath('/resources/icon.ico')
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'icon.ico'))
+  console.log(path.join(__dirname, 'icon.ico'))
   tray = new Tray(icon)
   const contextMenu = Menu.buildFromTemplate([
     { label: '退出', click: () => { app.quit() } }
@@ -122,3 +123,7 @@ if (!isDevelopment) {
   // 关闭菜单栏
   Menu.setApplicationMenu(null)
 }
+
+ipcMain.on('pressKey', (e, key) => {
+  robotjs.keyTap(key)
+})

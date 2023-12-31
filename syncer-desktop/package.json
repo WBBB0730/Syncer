@@ -19,6 +19,7 @@
     "core-js": "^3.8.3",
     "electron-store": "^8.1.0",
     "lodash": "^4.17.21",
+    "robotjs": "^0.6.0",
     "uuid": "^9.0.1",
     "vue": "^3.2.13",
     "vue-router": "^4.0.3",

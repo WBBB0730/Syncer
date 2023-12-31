@@ -2,7 +2,9 @@
 
 ## Project setup
 ```
+npm install -g -P windows-build-tools
 npm install
+npm run postinstall
 ```
 
 ### Compiles and hot-reloads for development

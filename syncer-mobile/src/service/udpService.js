@@ -1,6 +1,5 @@
 import dgram from 'react-native-udp'
 import store from '../store'
-import sleep from '../utils/sleep'
 import { Modal, modalStyles } from '../components/Modal'
 import { Button } from '@rneui/base'
 import { Text, View } from 'react-native'
