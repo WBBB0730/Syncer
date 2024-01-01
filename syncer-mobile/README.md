@@ -5,20 +5,37 @@ This is a new [**React Native**](https://reactnative.cn) project, bootstrapped u
 >**Note**: Make sure you have completed the [React Native - Environment Setup](https://reactnative.cn/docs/environment-setup) instructions till "Creating a new application" step, before proceeding.
 
 ## Setup
+参考文档：https://reactnative.cn/docs/environment-setup
 
-```
-npm install
-```
+需要：Node 16、JDK 11
+
+1. 根据参考文档配置开发环境
+2. 
+    ```
+    npm install
+    ```
 
 ## Run
+需要：adb
+1. 
+    ```
+    npm start
+    ```
+2. 连接手机，打开USB调试
+3. 
+    ```
+    adb reverse tcp:8081 tcp:8081
+    ```
 
-```
-adb reverse tcp:8081 tcp:8081
-```
 
-```
-npm start
-```
+## Build
+参考文档：https://reactnative.cn/docs/signed-apk-android
+1. 将 my-release-key.keystore 文件复制到项目的 android/app 目录下
+2. 
+   ```
+   cd android
+   ./gradlew assembleRelease
+   ```
 
 # Learn More
 

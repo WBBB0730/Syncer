@@ -6,6 +6,7 @@ import robotjs from 'robotjs'
 
 const path = require('path')
 require('@electron/remote/main').initialize()
+const icon = nativeImage.createFromPath(path.join(__static, 'icon.ico'))
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
@@ -21,6 +22,7 @@ async function createWindow () {
     width: 800,
     height: 600,
     title: 'Syncer',
+    icon,
     webPreferences: {
       // Use pluginOptions.nodeIntegration, leave this alone
       // 请参阅 https://nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration 了解更多信息
@@ -55,10 +57,10 @@ async function createWindow () {
 
 let tray
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, 'bundled', 'favicon.ico'))
   tray = new Tray(icon)
   const contextMenu = Menu.buildFromTemplate([
-    { label: '退出', click: () => { app.quit() } }
+    { label: '重新加载', click: () => { win && win.reload() } },
+    { label: '退出', click: () => { app.quit() } },
   ])
   tray.setContextMenu(contextMenu)
   tray.setTitle('Syncer')
@@ -94,8 +96,8 @@ app.on('ready', async () => {
   //     console.error('Vue Devtools failed to install:', e.toString())
   //   }
   // }
-  createTray()
   createWindow()
+  createTray()
 })
 
 app.on('before-quit', () => {
