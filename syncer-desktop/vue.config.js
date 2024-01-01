@@ -6,14 +6,17 @@ module.exports = defineConfig({
       nodeIntegration: true,
 
       builderOptions: {
+        productName: 'Syncer',
+        win: {
+          icon: './public/icon.png'
+        },
         nsis: {
           // 是否一键安装
           oneClick: false,
           allowToChangeInstallationDirectory: true,
           perMachine: true,
           allowElevation: true,
-          include: './installer.nsh',
-          shortcutName: 'Syncer'
+          shortcutName: 'Syncer',
         },
       }
     }
