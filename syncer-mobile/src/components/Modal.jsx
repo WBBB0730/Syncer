@@ -1,4 +1,4 @@
-import { Overlay } from '@rneui/base'
+import { Overlay } from '@rneui/themed'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 import theme from '../styles/theme'
 import React, { useState } from 'react'

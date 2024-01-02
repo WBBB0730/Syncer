@@ -1,6 +1,6 @@
-import { ScrollView, Text, ToastAndroid, View } from 'react-native'
+import { Image, ImageBackground, ScrollView, Text, ToastAndroid, Touchable, TouchableOpacity, View } from 'react-native'
 import { useState } from 'react'
-import { Button, ButtonGroup, Input } from '@rneui/base'
+import { Button, ButtonGroup, Input } from '@rneui/themed'
 import { sendTcpData } from '../service/tcpService'
 import store from '../store'
 import { observer } from 'mobx-react'
@@ -84,7 +84,7 @@ const SendText = () => {
       <Input value={ text } multiline placeholder="请输入要发送的文本"
              inputStyle={{ fontSize: 16 }} containerStyle={ styles.inputText }
              onChangeText={ setText } />
-      <Button onPress={ sendText }>发送</Button>
+      <Button disabled={ !text } onPress={ sendText }>发送</Button>
     </View>
   )
 }
@@ -160,20 +160,33 @@ const SendCommand = () => {
   return (
     <>
       <View style={ styles.commandButtonWrap }>
-        <Text style={ [styles.commandButton, styles.arrowUpButton] }
+        <Text style={ [styles.commandButton, { right: 50, bottom: 50 }] }
               onPress={ () => sendCommand('up') }>↑</Text>
-        <Text style={ [styles.commandButton, styles.arrowDownButton] }
+        <Text style={ [styles.commandButton, { right: 50, bottom: 0 }] }
               onPress={ () => sendCommand('down') }>↓</Text>
-        <Text style={ [styles.commandButton, styles.arrowLeftButton] }
+        <Text style={ [styles.commandButton, { right: 100, bottom: 0 }] }
               onPress={ () => sendCommand('left') }>←</Text>
-        <Text style={ [styles.commandButton, styles.arrowRightButton] }
+        <Text style={ [styles.commandButton, { right: 0, bottom: 0 }] }
               onPress={ () => sendCommand('right') }>→</Text>
-        <Text style={ [styles.commandButton, styles.spaceButton] }
+        <Text style={ [styles.commandButton, { left: 0, bottom: 0, width: 148 }] }
               onPress={ () => sendCommand('space') }>SPACE</Text>
-        <Text style={ [styles.commandButton, styles.escapeButton] }
+        <Text style={ [styles.commandButton, { left: 0, top: 0 }] }
               onPress={ () => sendCommand('escape') }>ESC</Text>
-        <Text style={ [styles.commandButton, styles.f5Button] }
+        <Text style={ [styles.commandButton, { left: 50, top: 0 }] }
               onPress={ () => sendCommand('f5') }>F5</Text>
+
+        <TouchableOpacity style={ [styles.commandButton, { right: 100, top: 0 }] }
+               onPress={ () => sendCommand('audio_mute') }>
+          <Image source={ require('../assets/vol_mute.png') } style={ [styles.commandButtonIcon] } />
+        </TouchableOpacity>
+        <TouchableOpacity style={ [styles.commandButton, { right: 50, top: 0 }] }
+               onPress={ () => sendCommand('audio_vol_down') }>
+          <Image source={ require('../assets/vol_down.png') } style={ [styles.commandButtonIcon] } />
+        </TouchableOpacity>
+        <TouchableOpacity style={ [styles.commandButton, { right: 0, top: 0 }] }
+               onPress={ () => sendCommand('audio_vol_up') }>
+          <Image source={ require('../assets/vol_up.png') } style={ [styles.commandButtonIcon] } />
+        </TouchableOpacity>
       </View>
     </>
   )

@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native'
 import theme from './theme'
+import colors from './colors'
 
 export default StyleSheet.create({
   target: {
@@ -58,54 +59,27 @@ export default StyleSheet.create({
   },
   commandButtonWrap: {
     position: 'relative',
-    height: 300,
+    height: 200,
+    marginTop: 16,
   },
   commandButton: {
     position: 'absolute',
     display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     width: 48,
     height: 48,
-    backgroundColor: theme.borderColor,
+    borderRadius: 8,
+    color: theme.secondaryTextColor,
+    backgroundColor: colors.orange2,
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
     lineHeight: 48,
-    borderRadius: 8,
   },
-  arrowUpButton: {
-    left: '50%',
-    top: 100,
-    transform: [{ translateX: -24 }]
-  },
-  arrowDownButton: {
-    left: '50%',
-    top: 150,
-    transform: [{ translateX: -24 }]
-  },
-  arrowLeftButton: {
-    left: '50%',
-    top: 150,
-    transform: [{ translateX: -74 }]
-  },
-  arrowRightButton: {
-    left: '50%',
-    top: 150,
-    transform: [{ translateX: 26 }]
-  },
-  spaceButton: {
-    left: '50%',
-    top: 250,
-    width: 148,
-    transform: [{ translateX: -74 }]
-  },
-  escapeButton: {
-    left: '50%',
-    top: 0,
-    transform: [{ translateX: -74 }]
-  },
-  f5Button: {
-    left: '50%',
-    top: 0,
-    transform: [{ translateX: 26 }]
+  commandButtonIcon: {
+    width: 28,
+    height: 28,
+    opacity: 0.65,
   },
 })

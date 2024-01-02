@@ -3,7 +3,7 @@ import store from '../store'
 import Clipboard from '@react-native-clipboard/clipboard'
 import { Text, ToastAndroid, View } from 'react-native'
 import { Modal, modalStyles } from '../components/Modal'
-import { Button } from '@rneui/base'
+import { Button } from '@rneui/themed'
 import RNFS from 'react-native-fs'
 
 

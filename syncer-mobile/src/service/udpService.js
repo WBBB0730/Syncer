@@ -1,7 +1,7 @@
 import dgram from 'react-native-udp'
 import store from '../store'
 import { Modal, modalStyles } from '../components/Modal'
-import { Button } from '@rneui/base'
+import { Button } from '@rneui/themed'
 import { Text, View } from 'react-native'
 
 const udpSocket = dgram.createSocket({ type: 'udp4' })
