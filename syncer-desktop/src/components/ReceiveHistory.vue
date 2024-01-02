@@ -8,6 +8,7 @@
   <a-modal v-model:open="visible" title="接收历史" class="receive-history" centered :footer="false">
     <div class="receive-history__head">
       <a-checkbox v-if="selecting" :checked="allSelected" @change="selectAll">全选</a-checkbox>
+      <div v-else>共 {{ receiveHistory.length }} 条记录</div>
       <div class="receive-history__operation">
         <a-button @click="changeSelecting">{{ selecting ? '取消' : '选择' }}</a-button>
         <a-button v-if="selecting" type="primary" danger :disabled="!selectedList.length"

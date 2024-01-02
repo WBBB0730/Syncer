@@ -8,12 +8,13 @@ module.exports = defineConfig({
       builderOptions: {
         productName: 'Syncer',
         win: {
-          icon: './public/icon.png'
+          icon: './build/icon.png'
         },
         nsis: {
           // 是否一键安装
           oneClick: false,
           allowToChangeInstallationDirectory: true,
+          createDesktopShortcut: 'always',
           perMachine: true,
           allowElevation: true,
           shortcutName: 'Syncer',
