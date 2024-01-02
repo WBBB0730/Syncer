@@ -153,8 +153,14 @@ function handleFile({ content }) {
     const exists = await RNFS.exists(path)
     if (!exists)
       await RNFS.mkdir(path)
-    for (const file of content)
+    for (const file of content) {
+      const name = file.name.slice(0, file.name.lastIndexOf('.'))
+      const type = file.name.slice(file.name.lastIndexOf('.'))
+      let i = 1
+      while (await RNFS.exists(path + file.name))
+        file.name = name + ` (${i++})` + type
       await RNFS.writeFile(path + file.name, file.data, 'base64')
+    }
     ToastAndroid.show('已保存到' + path, ToastAndroid.LONG)
   }
   Modal.show({

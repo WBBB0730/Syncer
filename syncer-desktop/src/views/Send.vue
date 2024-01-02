@@ -78,7 +78,7 @@ async function sendFile() {
   const list = []
   for (const file of files) {
     const data = (await fileToBase64(file)).split(',')[1]
-    list.push({ name: randomFileName(file.name), data })
+    list.push({ name: file.name, data })
   }
   await sendTcpData({
     type: 'file',

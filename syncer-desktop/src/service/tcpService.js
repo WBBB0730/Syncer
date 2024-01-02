@@ -3,7 +3,8 @@ import store from '@/store'
 import { message, Modal } from 'ant-design-vue'
 import { dialog } from '@electron/remote'
 import { ipcRenderer } from 'electron'
-import fs from 'fs/promises'
+import fsPromise from 'fs/promises'
+import fs from 'fs'
 import { h } from 'vue'
 import { getStorage, setStorage } from '@/utils/storage'
 
@@ -130,7 +131,7 @@ function handleText({ content }) {
   Modal.confirm({
     icon: null,
     title: '收到文本',
-    content,
+    content: h('div', { class: 'modal-content', style: 'white-space: break-spaces;' }, content),
     cancelText: '忽略',
     okText: '复制',
     onOk: async () => {
@@ -163,7 +164,12 @@ function handleFile({ content }) {
       setStorage('filePath', path)
       const receiveHistory = getStorage('receiveHistory') || []
       for (const file of content) {
-        await fs.writeFile(path + '/' + file.name, file.data, {encoding: 'base64'})
+        const name = file.name.slice(0, file.name.lastIndexOf('.'))
+        const type = file.name.slice(file.name.lastIndexOf('.'))
+        let i = 1
+        while (fs.existsSync(path + '/' + file.name))
+          file.name = name + ` (${i++})` + type
+        await fsPromise.writeFile(path + '/' + file.name, file.data, { encoding: 'base64' })
         receiveHistory.unshift({ name: file.name, path, time: Date.now() })
       }
       setStorage('receiveHistory', receiveHistory)

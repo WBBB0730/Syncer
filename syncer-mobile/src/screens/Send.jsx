@@ -117,10 +117,7 @@ const SendFile = () => {
     await sleep(0)
     await sendTcpData({
       type: 'file',
-      content: files.map(({ name, data }) => ({
-        name: randomFileName(name),
-        data,
-      })),
+      content: files,
     })
     setSendingFile(false)
     setFiles([])
@@ -138,8 +135,9 @@ const SendFile = () => {
         <ScrollView style={ styles.fileList }>
           { files.map((file, index) => (
             <View key={ index } style={ styles.fileListItem }>
-              <Text>{ file.name }</Text>
-              <Icon style={styles.fileListItemDelete} name="delete" size={ 16 } onPress={ () => { removeFile(file) } } />
+              <Text style={ styles.fileListItemName }>{ file.name }</Text>
+              <Icon style={ styles.fileListItemDelete } name="delete" size={ 16 }
+                    onPress={ () => { removeFile(file) } } />
             </View>
           )) }
         </ScrollView>

@@ -17,6 +17,22 @@ import store from './store'
 import { observer } from 'mobx-react'
 import Modal from './components/Modal'
 
+export default () => {
+  return (
+    <ThemeProvider theme={ elementsTheme }>
+      <StatusBar barStyle="dark-content" backgroundColor="#fafafa" />
+      <Page />
+      <Modal />
+    </ThemeProvider>
+  )
+}
+
+const Page = observer(() => (
+  <View style={ styles.page }>
+    { store.status === 'connected' ? <Send /> : <Connection /> }
+  </View>
+))
+
 const elementsTheme = createTheme({
   mode: 'light',
   lightColors: {
@@ -51,22 +67,6 @@ const elementsTheme = createTheme({
   }
 })
 
-const Page = observer(() => (
-  <View style={ styles.page }>
-    { store.status === 'connected' ? <Send /> : <Connection /> }
-  </View>
-))
-
-function App() {
-  return (
-    <ThemeProvider theme={ elementsTheme }>
-      <StatusBar barStyle="dark-content" backgroundColor="#fafafa" />
-      <Page />
-      <Modal />
-    </ThemeProvider>
-  )
-}
-
 const styles = StyleSheet.create({
   app: {
     color: 'red'
@@ -75,5 +75,3 @@ const styles = StyleSheet.create({
     padding: 16
   }
 })
-
-export default App

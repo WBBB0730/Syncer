@@ -26,7 +26,7 @@
             {{ item.path }}
           </div>
         </div>
-        <RightOutlined />
+        <RightOutlined class="receive-history__item-icon" />
       </div>
       <a-button v-if="hasMore" class="receive-history__show-more" type="link" @click="showMore">加载更多</a-button>
       <a-divider v-else>
@@ -143,8 +143,11 @@ function handleClickItem(item) {
 .receive-history__list {
   display: flex;
   flex-direction: column;
-  height: 60vh;
+  height: calc(60vh - 56px);
+  padding: 0 24px;
+  margin: 0 -24px;
   overflow-y: auto;
+
   &::-webkit-scrollbar {
     display: none;
   }
@@ -155,8 +158,13 @@ function handleClickItem(item) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 8px 0;
+  padding: 8px 24px;
+  margin: 0 -24px;
   cursor: pointer;
+
+  &:hover {
+    background: $bg-color-grey;
+  }
 }
 
 .receive-history__item-middle {
@@ -169,6 +177,9 @@ function handleClickItem(item) {
 .receive-history__item-name {
   margin-bottom: 4px;
   font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .receive-history__item-details {
@@ -177,6 +188,10 @@ function handleClickItem(item) {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.receive-history__item-icon {
+  color: $tip-text-color;
 }
 
 .receive-history__show-more {

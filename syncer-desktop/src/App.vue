@@ -2,9 +2,7 @@
   <a-config-provider :theme="{ token: { colorPrimary: '#fa8c16' } }">
     <div class="app">
       <div class="page">
-        <keep-alive>
-          <component :is="route" />
-        </keep-alive>
+        <component :is="route" />
       </div>
     </div>
   </a-config-provider>
@@ -12,19 +10,20 @@
 
 <script setup>
 import { computed } from 'vue'
-import Connections from '@/views/Connection.vue'
-import Connection from '@/views/Send.vue'
+import Connection from '@/views/Connection.vue'
+import Send from '@/views/Send.vue'
 import { useStore } from 'vuex'
 
 const store = useStore()
 
 const route = computed(() => {
-    return store.state.status === 'connected' ? Connection : Connections
+    return store.state.status === 'connected' ? Send : Connection
 })
 
 
 </script>
 
+<style lang="scss" src="@/styles/globals.scss" />
 <style lang="scss">
 @import "@/styles/theme";
 

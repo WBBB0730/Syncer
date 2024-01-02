@@ -54,6 +54,10 @@ export default StyleSheet.create({
     borderTopWidth: 1,
     borderColor: theme.borderColor,
   },
+  fileListItemName: {
+    width: 0,
+    flexGrow: 1,
+  },
   fileListItemDelete: {
     flexShrink: 0,
   },
