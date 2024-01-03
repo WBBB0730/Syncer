@@ -10,6 +10,8 @@ import RNFS from 'react-native-fs'
 import Icon from 'react-native-vector-icons/AntDesign'
 import { randomFileName } from '../utils/file'
 import sleep from '../utils/sleep'
+import { Modal, modalStyles } from '../components/Modal'
+import Sound from 'react-native-sound'
 
 export default () => {
   const [type, setType] = useState('text')
@@ -53,16 +55,16 @@ const SelectType = ({ type, setType }) => {
   )
 }
 
-const SendContent = ({ type }) => {
+const SendContent = observer(({ type }) => {
   switch (type) {
     case 'text':
       return <SendText />
     case 'file':
       return <SendFile />
     case 'command':
-      return <SendCommand />
+      return store.target.device === 'desktop' ? <SendCommand /> : <SendRing />
   }
-}
+})
 
 const SendText = () => {
   const [text, setText] = useState('')
@@ -187,5 +189,32 @@ const SendCommand = () => {
         </TouchableOpacity>
       </View>
     </>
+  )
+}
+
+const SendRing = () => {
+  const sendRing = async () => {
+    await sendTcpData({
+      type: 'ring',
+      content: true,
+    })
+    Modal.show({
+      title: '正在查找',
+      content: (
+        <Text>设备正在响铃...</Text>
+      ),
+      footer: (
+        <View style={ modalStyles.button }>
+          <Button onPress={ () => {
+            sendTcpData({ type: 'ring', content: false })
+            Modal.hide()
+          } }>停止</Button>
+        </View>
+      )
+    })
+  }
+
+  return (
+    <Button onPress={ sendRing }>查找设备</Button>
   )
 }

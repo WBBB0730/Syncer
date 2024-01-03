@@ -5,6 +5,8 @@ import { Text, ToastAndroid, View } from 'react-native'
 import { Modal, modalStyles } from '../components/Modal'
 import { Button } from '@rneui/themed'
 import RNFS from 'react-native-fs'
+import Sound from 'react-native-sound'
+import { VolumeManager } from 'react-native-volume-manager'
 
 
 let tcpSocket = null
@@ -65,6 +67,8 @@ function initTcpSocket() {
         return handleText(data)
       case 'file':
         return handleFile(data)
+      case 'ring':
+        return handleRing(data)
     }
   })
   tcpSocket.on('close', () => {
@@ -181,6 +185,42 @@ function handleFile({ content }) {
       </>
     )
   })
+}
+
+Sound.setCategory('Playback')
+const sound = new Sound(require('../assets/ring.mp3'))
+let volume = 0.5
+
+function handleRing({ content }) {
+  const startRing = async () => {
+    if (!sound)
+      return
+    volume = await VolumeManager.getVolume()
+    await VolumeManager.setVolume(1)
+    sound.setNumberOfLoops(-1).setVolume(1).play()
+    Modal.show({
+      title: '查找设备',
+      content: (
+        <Text>你的设备正在被查找，点击停止响铃</Text>
+      ),
+      footer: (
+        <View style={ modalStyles.button }>
+          <Button onPress={ stopRing }>停止</Button>
+        </View>
+      )
+    })
+  }
+
+  const stopRing = async () => {
+    sound.stop()
+    Modal.hide()
+    await VolumeManager.setVolume(volume)
+  }
+
+  if (content)
+    startRing().then()
+  else
+    stopRing().then()
 }
 
 export {

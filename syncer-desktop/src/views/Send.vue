@@ -7,6 +7,7 @@
   <a-segmented v-model:value="type" class="select-type" :options="[
     { value: 'text', label: '发送文本' },
     { value: 'file', label: '发送文件' },
+    { value: 'command', label: '发送指令' },
   ]" />
 
   <div v-show="type === 'text'" class="send-text">
@@ -23,6 +24,10 @@
     </a-upload-dragger>
     <a-button class="send-file-button" type="primary" :loading="sendingFile" @click="sendFile">发送</a-button>
   </div>
+
+  <div v-show="type === 'command' && store.state.target.device === 'mobile'" class="send-ring">
+    <a-button type="primary" @click="sendRing">查找设备</a-button>
+  </div>
 </template>
 
 <script setup>
@@ -31,7 +36,7 @@ import { sendTcpData } from '@/service/tcpService'
 import { useStore } from 'vuex'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { fileToBase64, randomFileName } from '@/utils/file'
-import { message } from 'ant-design-vue'
+import { message, Modal } from 'ant-design-vue'
 import ReceiveHistory from "@/components/ReceiveHistory.vue";
 
 const store = useStore()
@@ -87,6 +92,26 @@ async function sendFile() {
   sendingFile.value = false
   files.length = 0
   message.success('发送成功')
+}
+
+async function sendRing() {
+  Modal.info({
+    centered: true,
+    icon: null,
+    title: '正在查找',
+    content: '设备正在响铃...',
+    okText: '停止',
+    onOk: async () => {
+      await sendTcpData({
+        type: 'ring',
+        content: false,
+      })
+    },
+  })
+  await sendTcpData({
+    type: 'ring',
+    content: true,
+  })
 }
 
 </script>
