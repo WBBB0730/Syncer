@@ -195,7 +195,7 @@ function handleRing({ content }) {
   const startRing = async () => {
     if (!sound)
       return
-    volume = await VolumeManager.getVolume()
+    volume = (await VolumeManager.getVolume()).volume
     await VolumeManager.setVolume(1)
     sound.setNumberOfLoops(-1).setVolume(1).play()
     Modal.show({
