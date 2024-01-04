@@ -107,17 +107,10 @@ app.on('before-quit', () => {
 
 // 在开发模式下，根据父进程的请求退出
 if (isDevelopment) {
-  if (process.platform === 'win32') {
-    process.on('message', (data) => {
-      if (data === 'graceful-exit') {
-        app.quit()
-      }
-    })
-  } else {
-    process.on('SIGTERM', () => {
-      app.quit()
-    })
-  }
+  if (process.platform === 'win32')
+    process.on('message', (data) => data === 'graceful-exit' && app.quit())
+  else
+    process.on('SIGTERM', () => app.quit())
 }
 
 // 正式环境

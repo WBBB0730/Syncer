@@ -147,10 +147,6 @@ function handleClickItem(item) {
   padding: 0 24px;
   margin: 0 -24px;
   overflow-y: auto;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
 }
 
 .receive-history__item {
