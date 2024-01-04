@@ -7,6 +7,7 @@ import fsPromise from 'fs/promises'
 import fs from 'fs'
 import { h } from 'vue'
 import { getStorage, setStorage } from '@/utils/storage'
+import { notify } from '@/utils/notify'
 
 let tcpSocket = null
 const server = net.createServer((socket) => {
@@ -128,6 +129,7 @@ function handleDisconnect() {
 }
 
 function handleText({ content }) {
+  notify(store.state.target.name, '向你发送了一段文本')
   Modal.confirm({
     icon: null,
     title: '收到文本',
@@ -142,6 +144,7 @@ function handleText({ content }) {
 }
 
 function handleFile({ content }) {
+  notify(store.state.target.name, `向你发送了 ${content.length} 个文件`)
   Modal.confirm({
     icon: null,
     title: '收到文件',

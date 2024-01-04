@@ -1,6 +1,6 @@
 'use strict'
 
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, protocol, Tray } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, protocol, Tray, Notification } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import robotjs from 'robotjs'
 
@@ -119,6 +119,9 @@ if (!isDevelopment) {
   Menu.setApplicationMenu(null)
 }
 
-ipcMain.on('pressKey', (e, key) => {
-  robotjs.keyTap(key)
-})
+ipcMain.on('pressKey', (e, key) => robotjs.keyTap(key))
+ipcMain.on('show', () => win && win.show())
+
+// 系统通知标题
+if (process.platform === 'win32')
+  app.setAppUserModelId('Syncer')

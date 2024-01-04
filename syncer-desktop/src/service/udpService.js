@@ -3,6 +3,7 @@ import dgram from 'dgram'
 import { DesktopOutlined, MobileOutlined, QuestionOutlined } from '@ant-design/icons-vue'
 import { Modal } from 'ant-design-vue'
 import { h } from 'vue'
+import { notify } from '@/utils/notify'
 
 const udpSocket = dgram.createSocket('udp4')
 udpSocket.bind({ port: 5742 }, () => {
@@ -59,6 +60,7 @@ function handleAvailable({ uuid, name, device }, port, address) {
 function handleConnect({ uuid, name, device }, port, address) {
   if (store.state.status !== 'available')
     return
+  notify('连接请求', name)
   Modal.confirm({
     centered: true,
     icon: null,
