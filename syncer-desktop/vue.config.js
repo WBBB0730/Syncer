@@ -8,7 +8,8 @@ module.exports = defineConfig({
       builderOptions: {
         productName: 'Syncer',
         win: {
-          icon: './build/icon.png'
+          appId: 'Syncer',
+          icon: './build/icon.png',
         },
         nsis: {
           // 是否一键安装

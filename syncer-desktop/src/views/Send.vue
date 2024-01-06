@@ -37,7 +37,7 @@ import { useStore } from 'vuex'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { fileToBase64 } from '@/utils/file'
 import { message, Modal } from 'ant-design-vue'
-import ReceiveHistory from "@/components/ReceiveHistory.vue";
+import ReceiveHistory from '@/components/ReceiveHistory.vue'
 
 const store = useStore()
 
