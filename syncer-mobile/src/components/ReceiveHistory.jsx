@@ -43,10 +43,11 @@ const ReceiveHistory = () => {
     setReceiveHistory(temp)
   }
 
-  function deleteSelectedItems() {
+  async function deleteSelectedItems() {
     const remainList = receiveHistory.filter(item => !item.selected)
     setReceiveHistory(remainList)
-    setStorage('receiveHistory', remainList)
+    await setStorage('receiveHistory', remainList)
+    setSelecting(false)
   }
 
   async function handlePressItem(name, i) {
@@ -63,19 +64,16 @@ const ReceiveHistory = () => {
   }
 
   const listItems = receiveHistory.slice(0, pageIndex * 20).map((item, index) =>
-    <TouchableOpacity key={ index } style={ styles.listItem } activeOpacity={ 0.5 }
+    <TouchableOpacity key={ index } style={ styles.item } activeOpacity={ 0.5 }
                       onPress={ () => handlePressItem(item.name, index) }>
       {
         selecting && (
           <CheckBox
             checked={ item.selected }
-            onPress={ () => handleSelectItem(index) }
-            iconType="material-community"
-            checkedIcon="checkbox-marked"
-            uncheckedIcon="checkbox-blank-outline"
-            containerStyle={ styles.checkBox } />)
+            size={ 20 }
+            onPress={ () => handleSelectItem(index) } />)
       }
-      <View style={ styles.itemContent }>
+      <View style={ styles.itemDetails }>
         <Text style={ styles.fileName } numberOfLines={ 1 } ellipsizeMode={ 'tail' }>{ item.name }</Text>
         <Text style={ styles.time }>{ moment(item.time).format('YYYY-MM-DD HH:mm') }</Text>
       </View>
@@ -89,23 +87,20 @@ const ReceiveHistory = () => {
             selecting ? (
               <CheckBox
                 checked={ allSelected }
-                iconType="material-community"
-                checkedIcon="checkbox-marked"
-                uncheckedIcon="checkbox-blank-outline"
+                size={ 20 }
                 title="全选"
-                containerStyle={ styles.checkBox }
-                textStyle={ styles.checkBoxTitle }
+                textStyle={ styles.selectAll }
                 onPress={ selectAll } />
             ) : <Text>共 { receiveHistory.length } 条记录</Text>
           }
           <View style={ styles.operationRight }>
             <Button onPress={ () => setSelecting(!selecting) } type="outline"
-                    buttonStyle={ styles.buttonStyle }
-                    titleStyle={ styles.cancelTitleStyle }>{ selecting ? '取消' : '选择' }</Button>
+                    buttonStyle={ styles.button }
+                    titleStyle={ styles.select }>{ selecting ? '取消' : '选择' }</Button>
             { selecting && (
               <Button onPress={ deleteSelectedItems }
                       disabled={ selectedList.length === 0 } color="error"
-                      buttonStyle={ styles.buttonStyle } titleStyle={ styles.delTitleStyle }>删除</Button>) }
+                      buttonStyle={ styles.button } titleStyle={ styles.delete }>删除</Button>) }
           </View>
         </View>
         <ScrollView contentContainerStyle={ styles.list } style={ styles.listWrap }>
