@@ -16,6 +16,7 @@ import theme from './styles/theme'
 import store from './store'
 import { observer } from 'mobx-react'
 import Modal from './components/Modal'
+import Loading from './components/Loading'
 
 export default () => {
   return (
@@ -23,6 +24,7 @@ export default () => {
       <StatusBar barStyle="dark-content" backgroundColor="#fafafa" />
       <Page />
       <Modal />
+      <Loading />
     </ThemeProvider>
   )
 }
