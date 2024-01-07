@@ -79,5 +79,9 @@ export default createStore({
 })
 
 function initValue(key, newValue) {
-  return getStorage(key) || newValue
+  const value = getStorage(key)
+  if (value)
+    return value
+  setStorage(key, newValue)
+  return newValue
 }
