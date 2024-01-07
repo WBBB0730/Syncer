@@ -7,15 +7,19 @@ import { sendUdpData } from '@/service/udpService'
 
 export default createStore({
   state: {
-    uuid: v4(),
+    uuid: initValue('uuid', v4()),
     status: 'available',    // available、connecting、connected
-    name: initName(),
+    name: initValue('name', `DESKTOP_${ randomNumber(5) }`),
     availableDeviceMap: new Map(),
 
     target: null,
   },
   getters: {},
   mutations: {
+    setUuid(state, uuid) {
+      state.uuid = uuid
+      setStorage('uuid', uuid)
+    },
     /**
      * @param state
      * @param { 'available' | 'connecting' | 'connected' } status
@@ -25,7 +29,7 @@ export default createStore({
     },
     setName(state, name) {
       state.name = name
-      setStorage('config.name', name)
+      setStorage('name', name)
     },
     clearAvailableDeviceMap(state) {
       state.availableDeviceMap.clear()
@@ -74,11 +78,6 @@ export default createStore({
   modules: {}
 })
 
-function initName() {
-  let name = getStorage('config.name')
-  if (name)
-    return name
-  name = `DESKTOP_${ randomNumber(5) }`
-  setStorage('config.name', name)
-  return name
+function initValue(key, newValue) {
+  return getStorage(key) || newValue
 }

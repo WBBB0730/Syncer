@@ -177,7 +177,7 @@ const ConnectingModal = observer(() => {
       </View>
       <View style={ modalStyles.footer }>
         <View style={ modalStyles.button }>
-          <Button type="outline" onPress={ () => { store.cancel() } }>取消</Button>
+          <Button type="outline" onPress={ () => store.cancel() }>取消</Button>
         </View>
       </View>
     </Overlay>
