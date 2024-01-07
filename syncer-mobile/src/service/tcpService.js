@@ -7,6 +7,8 @@ import { Button } from '@rneui/themed'
 import RNFS from 'react-native-fs'
 import Sound from 'react-native-sound'
 import { VolumeManager } from 'react-native-volume-manager'
+import ReceiveHistory from "../components/ReceiveHistory";
+import {getStorage, setStorage} from "../utils/storage";
 
 
 let tcpSocket = null
@@ -157,6 +159,7 @@ function handleFile({ content }) {
     const exists = await RNFS.exists(path)
     if (!exists)
       await RNFS.mkdir(path)
+    const receiveHistory = await getStorage('receiveHistory')||[]
     for (const file of content) {
       const name = file.name.slice(0, file.name.lastIndexOf('.'))
       const type = file.name.slice(file.name.lastIndexOf('.'))
@@ -164,8 +167,10 @@ function handleFile({ content }) {
       while (await RNFS.exists(path + file.name))
         file.name = name + ` (${i++})` + type
       await RNFS.writeFile(path + file.name, file.data, 'base64')
+      receiveHistory.unshift({ name: file.name, time: Date.now() })
     }
     ToastAndroid.show('已保存到' + path, ToastAndroid.LONG)
+    await setStorage('receiveHistory', receiveHistory)
   }
   Modal.show({
     title: '收到文件',
