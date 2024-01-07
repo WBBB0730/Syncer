@@ -59,7 +59,7 @@ const MyDeviceName = observer(() => {
           </>
         ) : (
           <>
-            <Text style={ styles.myDeviceNameText }>{ store.name }</Text>
+            <Text numberOfLines={ 1 } ellipsizeMode="tail" style={ styles.myDeviceNameText }>{ store.name }</Text>
             <Button type="clear" icon={ <Icon name="edit" size={ 20 } color={ theme.brandColor } /> }
                     onPress={ editName } />
             <Button type="clear" icon={ <Icon name="filetext1" size={ 20 } color={ theme.secondaryTextColor } /> }
@@ -158,7 +158,7 @@ const AvailableDevices = observer(() => {
             <Icon name={ device.device === 'desktop' ? 'iconfontdesktop' :
               device.device === 'mobile' ? 'mobile1' : 'question' } size={ 32 } color={ theme.mainTextColor } />
             <View style={ styles.availableDeviceInfo }>
-              <Text style={ styles.availableDeviceName }>{ device.name }</Text>
+              <Text numberOfLines={ 1 } ellipsizeMode="tail" style={ styles.availableDeviceName }>{ device.name }</Text>
               <Text style={ styles.availableDeviceAddress }>{ device.address }</Text>
             </View>
             <Button buttonStyle={ styles.connectButton } titleStyle={ styles.connectButtonText }

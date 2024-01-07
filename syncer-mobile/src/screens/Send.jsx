@@ -8,12 +8,10 @@ import styles from '../styles/SendStyles'
 import DocumentPicker from 'react-native-document-picker'
 import RNFS from 'react-native-fs'
 import Icon from 'react-native-vector-icons/AntDesign'
-import { randomFileName } from '../utils/file'
 import sleep from '../utils/sleep'
 import { Modal, modalStyles } from '../components/Modal'
-import Sound from 'react-native-sound'
-import {showReceiveHistory} from "../components/ReceiveHistory";
-import theme from "../styles/theme";
+import { showReceiveHistory } from '../components/ReceiveHistory'
+import theme from '../styles/theme'
 
 export default () => {
   const [type, setType] = useState('text')
@@ -39,10 +37,10 @@ const Target = observer(() => {
 
   return (
     <View style={ styles.target }>
-      <Text style={ styles.targetName }>{ target.name }</Text>
+      <Text numberOfLines={ 1 } ellipsizeMode="tail" style={ styles.targetName }>{ target.name }</Text>
       <Button type="outline" onPress={ disconnect }>断开连接</Button>
       <Button type="clear" icon={ <Icon name="filetext1" size={ 20 } color={ theme.secondaryTextColor } /> }
-              containerStyle={{marginLeft: 'auto'}} onPress={ showReceiveHistory } />
+              containerStyle={ { marginLeft: 'auto' } } onPress={ showReceiveHistory } />
     </View>
   )
 })
@@ -88,7 +86,7 @@ const SendText = () => {
     <View>
       <Text style={ styles.sendTextTitle }>待发送文本：</Text>
       <Input value={ text } multiline placeholder="请输入要发送的文本"
-             inputStyle={{ fontSize: 16 }} containerStyle={ styles.inputText }
+             inputStyle={ { fontSize: 16 } } containerStyle={ styles.inputText }
              onChangeText={ setText } />
       <Button disabled={ !text } onPress={ sendText }>发送</Button>
     </View>
@@ -182,7 +180,7 @@ const SendCommand = () => {
         </TouchableOpacity>
         <TouchableOpacity style={ [styles.commandButton, { left: 0, bottom: 0, width: 148 }] }
                           onPress={ () => sendCommand('space') }>
-          <Text  style={ styles.commandButtonText }>SPACE</Text>
+          <Text style={ styles.commandButtonText }>SPACE</Text>
         </TouchableOpacity>
         <TouchableOpacity style={ [styles.commandButton, { left: 0, top: 0 }] }
                           onPress={ () => sendCommand('escape') }>
@@ -194,15 +192,15 @@ const SendCommand = () => {
         </TouchableOpacity>
 
         <TouchableOpacity style={ [styles.commandButton, { right: 100, top: 0 }] }
-               onPress={ () => sendCommand('audio_mute') }>
+                          onPress={ () => sendCommand('audio_mute') }>
           <Image source={ require('../assets/vol_mute.png') } style={ [styles.commandButtonIcon] } />
         </TouchableOpacity>
         <TouchableOpacity style={ [styles.commandButton, { right: 50, top: 0 }] }
-               onPress={ () => sendCommand('audio_vol_down') }>
+                          onPress={ () => sendCommand('audio_vol_down') }>
           <Image source={ require('../assets/vol_down.png') } style={ [styles.commandButtonIcon] } />
         </TouchableOpacity>
         <TouchableOpacity style={ [styles.commandButton, { right: 0, top: 0 }] }
-               onPress={ () => sendCommand('audio_vol_up') }>
+                          onPress={ () => sendCommand('audio_vol_up') }>
           <Image source={ require('../assets/vol_up.png') } style={ [styles.commandButtonIcon] } />
         </TouchableOpacity>
       </View>

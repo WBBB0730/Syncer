@@ -11,8 +11,9 @@ export default StyleSheet.create({
     marginBottom: 16,
   },
   targetName: {
+    maxWidth: 240,
     color: theme.mainTextColor,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   selectType: {

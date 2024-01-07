@@ -11,8 +11,9 @@ export default StyleSheet.create({
     marginBottom: 16,
   },
   myDeviceNameText: {
+    maxWidth: 240,
     color: theme.mainTextColor,
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
   },
   inputName: {
@@ -81,6 +82,7 @@ export default StyleSheet.create({
     fontSize: 32,
   },
   availableDeviceInfo: {
+    width: 0,
     flexGrow: 1,
   },
   availableDeviceName: {
