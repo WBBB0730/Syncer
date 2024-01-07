@@ -10,6 +10,7 @@ import theme from '../styles/theme'
 import { getIpAddress } from '../utils/ip'
 import sleep from '../utils/sleep'
 import { Modal, modalStyles } from '../components/Modal'
+import { showReceiveHistory } from "../components/ReceiveHistory";
 
 export default () => {
   return (
@@ -62,6 +63,8 @@ const MyDeviceName = observer(() => {
             <Text style={ styles.myDeviceNameText }>{ store.name }</Text>
             <Button type="clear" icon={ <Icon name="edit" size={ 20 } color={ theme.brandColor } /> }
                     onPress={ editName } />
+            <Button type="clear" icon={ <Icon name="filetext1" size={ 20 } color={ theme.secondaryTextColor } /> }
+                    containerStyle={{marginLeft: 'auto'}} onPress={ showReceiveHistory } />
           </>
         )
       }

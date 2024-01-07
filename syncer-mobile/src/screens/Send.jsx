@@ -12,6 +12,8 @@ import { randomFileName } from '../utils/file'
 import sleep from '../utils/sleep'
 import { Modal, modalStyles } from '../components/Modal'
 import Sound from 'react-native-sound'
+import {showReceiveHistory} from "../components/ReceiveHistory";
+import theme from "../styles/theme";
 
 export default () => {
   const [type, setType] = useState('text')
@@ -39,6 +41,8 @@ const Target = observer(() => {
     <View style={ styles.target }>
       <Text style={ styles.targetName }>{ target.name }</Text>
       <Button type="outline" onPress={ disconnect }>断开连接</Button>
+      <Button type="clear" icon={ <Icon name="filetext1" size={ 20 } color={ theme.secondaryTextColor } /> }
+              containerStyle={{marginLeft: 'auto'}} onPress={ showReceiveHistory } />
     </View>
   )
 })
