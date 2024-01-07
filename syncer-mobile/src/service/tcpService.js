@@ -10,8 +10,8 @@ import { VolumeManager } from 'react-native-volume-manager'
 import { Loading } from '../components/Loading'
 import sleep from '../utils/sleep'
 import { notify } from '../utils/notify'
-import ReceiveHistory from "../components/ReceiveHistory";
-import {getStorage, setStorage} from "../utils/storage";
+import ReceiveHistory from '../components/ReceiveHistory'
+import { getStorage, setStorage } from '../utils/storage'
 
 
 let tcpSocket = null
