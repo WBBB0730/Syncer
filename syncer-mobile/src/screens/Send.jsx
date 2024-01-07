@@ -164,20 +164,34 @@ const SendCommand = () => {
   return (
     <>
       <View style={ styles.commandButtonWrap }>
-        <Text style={ [styles.commandButton, { right: 50, bottom: 50 }] }
-              onPress={ () => sendCommand('up') }>↑</Text>
-        <Text style={ [styles.commandButton, { right: 50, bottom: 0 }] }
-              onPress={ () => sendCommand('down') }>↓</Text>
-        <Text style={ [styles.commandButton, { right: 100, bottom: 0 }] }
-              onPress={ () => sendCommand('left') }>←</Text>
-        <Text style={ [styles.commandButton, { right: 0, bottom: 0 }] }
-              onPress={ () => sendCommand('right') }>→</Text>
-        <Text style={ [styles.commandButton, { left: 0, bottom: 0, width: 148 }] }
-              onPress={ () => sendCommand('space') }>SPACE</Text>
-        <Text style={ [styles.commandButton, { left: 0, top: 0 }] }
-              onPress={ () => sendCommand('escape') }>ESC</Text>
-        <Text style={ [styles.commandButton, { left: 50, top: 0 }] }
-              onPress={ () => sendCommand('f5') }>F5</Text>
+        <TouchableOpacity style={ [styles.commandButton, { right: 50, bottom: 50 }] }
+                          onPress={ () => sendCommand('up') }>
+          <Text style={ styles.commandButtonText }>↑</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={ [styles.commandButton, { right: 50, bottom: 0 }] }
+                          onPress={ () => sendCommand('down') }>
+          <Text style={ styles.commandButtonText }>↓</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={ [styles.commandButton, { right: 100, bottom: 0 }] }
+                          onPress={ () => sendCommand('left') }>
+          <Text style={ styles.commandButtonText }>←</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={ [styles.commandButton, { right: 0, bottom: 0 }] }
+                          onPress={ () => sendCommand('right') }>
+          <Text style={ styles.commandButtonText }>→</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={ [styles.commandButton, { left: 0, bottom: 0, width: 148 }] }
+                          onPress={ () => sendCommand('space') }>
+          <Text  style={ styles.commandButtonText }>SPACE</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={ [styles.commandButton, { left: 0, top: 0 }] }
+                          onPress={ () => sendCommand('escape') }>
+          <Text style={ styles.commandButtonText }>ESC</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={ [styles.commandButton, { left: 50, top: 0 }] }
+                          onPress={ () => sendCommand('f5') }>
+          <Text style={ styles.commandButtonText }>F5</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity style={ [styles.commandButton, { right: 100, top: 0 }] }
                onPress={ () => sendCommand('audio_mute') }>

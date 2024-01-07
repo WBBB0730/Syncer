@@ -74,12 +74,12 @@ export default StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 8,
-    color: theme.secondaryTextColor,
     backgroundColor: colors.orange2,
+  },
+  commandButtonText: {
+    color: theme.secondaryTextColor,
     fontSize: 20,
     fontWeight: 'bold',
-    textAlign: 'center',
-    lineHeight: 48,
   },
   commandButtonIcon: {
     width: 28,
