@@ -3,6 +3,8 @@ import store from '../store'
 import { Modal, modalStyles } from '../components/Modal'
 import { Button } from '@rneui/themed'
 import { Text, View } from 'react-native'
+import PushNotification from 'react-native-push-notification'
+import { notify } from '../utils/notify'
 
 const udpSocket = dgram.createSocket({ type: 'udp4' })
 udpSocket.bind(5742)
@@ -13,7 +15,6 @@ udpSocket.on('listening', () => {
 
 /** 处理接收到的UDP数据 */
 udpSocket.on('message', async (msg, { port, address }) => {
-
   let data
   try {
     data = JSON.parse(msg.toString())
@@ -40,6 +41,8 @@ udpSocket.on('message', async (msg, { port, address }) => {
 /** 发送UDP数据 */
 function sendUdpData(data, port, address) {
   const { uuid, name } = store
+  if (!uuid)
+    return
   data = { ...data, uuid, name, device: 'mobile' }
   udpSocket.send(JSON.stringify(data), undefined, undefined, port, address)
   console.log(`UDP: send to ${ address }:${ port }`, data)
@@ -85,6 +88,7 @@ function handleConnect({ uuid, name, device }, port, address) {
       </>
     )
   })
+  notify('连接请求', name)
 }
 
 /** 处理type为refuse的UDP数据 */

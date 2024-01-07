@@ -7,6 +7,9 @@ import { Button } from '@rneui/themed'
 import RNFS from 'react-native-fs'
 import Sound from 'react-native-sound'
 import { VolumeManager } from 'react-native-volume-manager'
+import { Loading } from '../components/Loading'
+import sleep from '../utils/sleep'
+import { notify } from '../utils/notify'
 import ReceiveHistory from "../components/ReceiveHistory";
 import {getStorage, setStorage} from "../utils/storage";
 
@@ -57,10 +60,16 @@ function closeTcpSocket() {
 
 function initTcpSocket() {
   tcpSocket.setKeepAlive(true)
-  tcpSocket.on('data', (data) => {
+  tcpSocket.on('data', async (data) => {
+    // 如果需要拼接，显示Loading
+    if (queue) {
+      Loading.show()
+      await sleep(0)
+    }
     data = parseData(data)
     if (!data)
       return
+    Loading.hide()
     console.log('TCP: receive', data.type === 'file' ? { type: 'file', content: data.content.map(file => file.name) } : data)
     switch (data.type) {
       case 'disconnect':
@@ -129,6 +138,8 @@ function handleDisconnect() {
 }
 
 function handleText({ content }) {
+  notify(store.name, '向你发送了一段文本')
+
   const copy = () => {
     Clipboard.setString(content)
     ToastAndroid.show('已复制到剪贴板', ToastAndroid.SHORT)
@@ -153,6 +164,8 @@ function handleText({ content }) {
 }
 
 function handleFile({ content }) {
+  notify(store.name, `向你发送了 ${content.length} 个文件`)
+
   const save = async () => {
     Modal.hide()
     const path = RNFS.DownloadDirectoryPath + '/Syncer/'
@@ -172,6 +185,7 @@ function handleFile({ content }) {
     ToastAndroid.show('已保存到' + path, ToastAndroid.LONG)
     await setStorage('receiveHistory', receiveHistory)
   }
+
   Modal.show({
     title: '收到文件',
     content: (

@@ -18,7 +18,7 @@
     <div class="receive-history__list">
       <div v-for="(item, index) in list" :key="index" class="receive-history__item"
            @click="handleClickItem(item)">
-        <a-checkbox v-if="selecting" v-model:checked="item.selected" @click.stop></a-checkbox>
+        <a-checkbox v-if="selecting" v-model:checked="item.selected"></a-checkbox>
         <div class="receive-history__item-middle">
           <div class="receive-history__item-name">{{ item.name }}</div>
           <div class="receive-history__item-details">

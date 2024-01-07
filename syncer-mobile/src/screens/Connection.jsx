@@ -16,8 +16,7 @@ export default () => {
   return (
     <>
       <MyDeviceName />
-      <MyDeviceIp />
-      <AvailableTitle />
+      <Search />
       <AvailableDevices />
       <ConnectingModal />
     </>
@@ -72,19 +71,9 @@ const MyDeviceName = observer(() => {
   )
 })
 
-const MyDeviceIp = () => {
-  const [ipAddress, setIpAddress] = useState('')
-  useEffect(() => {
-    getIpAddress().then(setIpAddress)
-  }, [])
-
-  return (
-    <Text style={ styles.myIpAddress }>{ ipAddress }</Text>
-  )
-}
-
-const AvailableTitle = () => {
+const Search = () => {
   const [searching, setSearching] = useState(false)
+  const [ipAddress, setIpAddress] = useState('')
   const [inputIpAddress, setInputIpAddress] = useState('')
   const [flag, setFlag] = useState(false)
 
@@ -100,7 +89,9 @@ const AvailableTitle = () => {
   }, [flag])
 
   /** 查找同一局域网内的设备 */
-  async function search(test) {
+  async function search() {
+    getIpAddress().then(setIpAddress)
+
     const ipAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(inputIpAddress) && inputIpAddress
     store.clearAvailableDeviceMap()
 
@@ -133,15 +124,18 @@ const AvailableTitle = () => {
   }
 
   return (
-    <View style={ styles.availableTitle }>
-      <Text style={ styles.availableTitleText }>可用设备</Text>
-      <Button loading={ searching } type="outline"
-              buttonStyle={ styles.searchButton } titleStyle={ styles.searchButtonText }
-              onPress={ search }>查找</Button>
-      <Button disabled={ searching } type="outline"
-              buttonStyle={ styles.manualSearchButton } titleStyle={ styles.searchButtonText }
-              onPress={ manualSearch }>手动查找</Button>
-    </View>
+    <>
+      <Text style={ styles.myIpAddress }>{ ipAddress }</Text>
+      <View style={ styles.availableTitle }>
+        <Text style={ styles.availableTitleText }>可用设备</Text>
+        <Button loading={ searching } type="outline"
+                buttonStyle={ styles.searchButton } titleStyle={ styles.searchButtonText }
+                onPress={ search }>查找</Button>
+        <Button disabled={ searching } type="outline"
+                buttonStyle={ styles.manualSearchButton } titleStyle={ styles.searchButtonText }
+                onPress={ manualSearch }>手动查找</Button>
+      </View>
+    </>
   )
 }
 
@@ -186,7 +180,7 @@ const ConnectingModal = observer(() => {
       </View>
       <View style={ modalStyles.footer }>
         <View style={ modalStyles.button }>
-          <Button type="outline" onPress={ () => { store.cancel() } }>取消</Button>
+          <Button type="outline" onPress={ () => store.cancel() }>取消</Button>
         </View>
       </View>
     </Overlay>

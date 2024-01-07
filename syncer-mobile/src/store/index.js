@@ -6,7 +6,7 @@ import { sendUdpData } from '../service/udpService'
 import { closeTcpServer, closeTcpSocket, connectTcpServer, openTcpServer, sendTcpData } from '../service/tcpService'
 
 class Store {
-  uuid = uuid.v4()
+  uuid = ''
   status = 'available'
   name = ''
   availableDeviceMap = new Map()
@@ -15,7 +15,13 @@ class Store {
 
   constructor() {
     makeAutoObservable(this)
-    initName().then(name => { this.setName(name) })
+    initValue('name', `MOBILE_${ randomNumber(5) }`).then((name) => this.setName(name))
+    initValue('uuid', uuid.v4()).then((uuid) => this.setUuid(uuid))
+  }
+
+  setUuid(uuid) {
+    this.uuid = uuid
+    setStorage('uuid', uuid).then()
   }
 
   /**
@@ -72,13 +78,8 @@ class Store {
   }
 }
 
-async function initName() {
-  let name = await getStorage('name')
-  if (name)
-    return name
-  name = `MOBILE_${ randomNumber(5) }`
-  await getStorage('name', name)
-  return name
+async function initValue(key, newValue) {
+  return await getStorage(key) || newValue
 }
 
 const store = new Store()

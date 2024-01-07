@@ -78,7 +78,7 @@ import {
 } from '@ant-design/icons-vue'
 import sleep from '@/utils/sleep'
 import { getIpAddress } from '@/utils/ip'
-import ReceiveHistory from "@/components/ReceiveHistory.vue";
+import ReceiveHistory from '@/components/ReceiveHistory.vue'
 
 const store = useStore()
 
@@ -114,15 +114,16 @@ const inputIpAddress = ref('')
 
 /** 查找同一局域网内的设备 */
 async function search() {
-  const ipAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(inputIpAddress.value) && inputIpAddress.value
+  ipAddress.value = getIpAddress()
+  const searchIpAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(inputIpAddress.value) && inputIpAddress.value
   inputtingIpAddress.value = false
   store.commit('clearAvailableDeviceMap')
 
   searching.value = true
   for (let i = 0; i < 5; i++) {
     sendUdpData({ type: 'search' }, 5742, '255.255.255.255')
-    if (ipAddress)
-      sendUdpData({ type: 'search' }, 5742, ipAddress)
+    if (searchIpAddress)
+      sendUdpData({ type: 'search' }, 5742, searchIpAddress)
     await sleep(500)
   }
   searching.value = false

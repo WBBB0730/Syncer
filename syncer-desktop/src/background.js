@@ -1,6 +1,6 @@
 'use strict'
 
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, protocol, Tray, Notification } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, protocol, Tray } from 'electron'
 import { createProtocol } from 'vue-cli-plugin-electron-builder/lib'
 import robotjs from 'robotjs'
 
@@ -28,7 +28,6 @@ async function createWindow () {
       // 请参阅 https://nklayman.github.io/vue-cli-plugin-electron-builder/guide/security.html#node-integration 了解更多信息
       nodeIntegration: process.env.ELECTRON_NODE_INTEGRATION,
       contextIsolation: !process.env.ELECTRON_NODE_INTEGRATION,
-      // preload: path.join(__dirname, 'preload.js'),
       devTools: isDevelopment,
     },
   })
@@ -119,9 +118,9 @@ if (!isDevelopment) {
   Menu.setApplicationMenu(null)
 }
 
-ipcMain.on('pressKey', (e, key) => robotjs.keyTap(key))
-ipcMain.on('show', () => win && win.show())
-
 // 系统通知标题
 if (process.platform === 'win32')
   app.setAppUserModelId('Syncer')
+
+ipcMain.on('pressKey', (e, key) => robotjs.keyTap(key))
+ipcMain.on('show', () => win && win.show())
