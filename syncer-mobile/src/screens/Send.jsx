@@ -12,7 +12,7 @@ import sleep from '../utils/sleep'
 import { Modal, modalStyles } from '../components/Modal'
 import { showReceiveHistory } from '../components/ReceiveHistory'
 import theme from '../styles/theme'
-import { getStorage, setStorage } from '../utils/storage'
+import { getStorage, setStorage, STORAGE_KEYS } from '../utils/storage'
 
 export default () => {
   const [type, setType] = useState('text')
@@ -51,24 +51,24 @@ const WhiteList = () => {
   const [isInWhiteList, setIsInWhiteList] = useState(false)
 
   useEffect(() => {
-    getStorage('whiteList').then((whiteList) => {
+    getStorage(STORAGE_KEYS.WHITE_LIST).then((whiteList) => {
       whiteList = whiteList || {}
       setIsInWhiteList(whiteList[store.target.uuid] === true)
     })
   }, [])
 
   async function getIsInWhiteList() {
-    const whiteList = await getStorage('whiteList') || {}
+    const whiteList = await getStorage(STORAGE_KEYS.WHITE_LIST) || {}
     setIsInWhiteList(whiteList[store.target.uuid] === true)
   }
 
   async function setIsInWhiteList_(isInWhiteList) {
-    const whiteList = await getStorage('whiteList') || {}
+    const whiteList = await getStorage(STORAGE_KEYS.WHITE_LIST) || {}
     if (isInWhiteList)
       whiteList[store.target.uuid] = true
     else
       delete whiteList[store.target.uuid]
-    await setStorage('whiteList', whiteList)
+    await setStorage(STORAGE_KEYS.WHITE_LIST, whiteList)
     await getIsInWhiteList()
   }
 

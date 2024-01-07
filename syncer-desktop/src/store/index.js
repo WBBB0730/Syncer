@@ -1,15 +1,15 @@
 import { createStore } from 'vuex'
 import { v4 } from 'uuid'
 import { randomNumber } from '@/utils/random'
-import { getStorage, setStorage } from '@/utils/storage'
+import { getStorage, setStorage, STORAGE_KEYS } from '@/utils/storage'
 import { closeTcpServer, closeTcpSocket, connectTcpServer, openTcpServer, sendTcpData } from '@/service/tcpService'
 import { sendUdpData } from '@/service/udpService'
 
 export default createStore({
   state: {
-    uuid: initValue('uuid', v4()),
+    uuid: initValue(STORAGE_KEYS.UUID, v4()),
     status: 'available',    // available、connecting、connected
-    name: initValue('name', `DESKTOP_${ randomNumber(5) }`),
+    name: initValue(STORAGE_KEYS.NAME, `DESKTOP_${ randomNumber(5) }`),
     availableDeviceMap: new Map(),
 
     target: null,
@@ -18,7 +18,7 @@ export default createStore({
   mutations: {
     setUuid(state, uuid) {
       state.uuid = uuid
-      setStorage('uuid', uuid)
+      setStorage(STORAGE_KEYS.UUID, uuid)
     },
     /**
      * @param state
@@ -29,7 +29,7 @@ export default createStore({
     },
     setName(state, name) {
       state.name = name
-      setStorage('name', name)
+      setStorage(STORAGE_KEYS.NAME, name)
     },
     clearAvailableDeviceMap(state) {
       state.availableDeviceMap.clear()

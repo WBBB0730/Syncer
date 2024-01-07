@@ -1,4 +1,4 @@
-import { getStorage, setStorage } from '../utils/storage'
+import { getStorage, setStorage, STORAGE_KEYS } from '../utils/storage'
 import { useEffect, useMemo, useState } from 'react'
 import { ScrollView, Text, ToastAndroid, TouchableOpacity, View } from 'react-native'
 import { Button, CheckBox } from '@rneui/themed'
@@ -14,7 +14,7 @@ import { Modal, modalStyles } from './Modal'
 const ReceiveHistory = () => {
   const [receiveHistory, setReceiveHistory] = useState([])
   useEffect(() => {
-    getStorage('receiveHistory').then((res) => {
+    getStorage(STORAGE_KEYS.RECEIVE_HISTORY).then((res) => {
       const temp = res?.map(item => ({ ...item, selected: false })) || []
       setReceiveHistory(temp)
     })
@@ -46,7 +46,7 @@ const ReceiveHistory = () => {
   async function deleteSelectedItems() {
     const remainList = receiveHistory.filter(item => !item.selected)
     setReceiveHistory(remainList)
-    await setStorage('receiveHistory', remainList)
+    await setStorage(STORAGE_KEYS.RECEIVE_HISTORY, remainList)
     setSelecting(false)
   }
 

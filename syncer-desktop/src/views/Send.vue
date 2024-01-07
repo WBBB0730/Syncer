@@ -43,7 +43,7 @@ import { PlusOutlined } from '@ant-design/icons-vue'
 import { fileToBase64 } from '@/utils/file'
 import { message, Modal } from 'ant-design-vue'
 import ReceiveHistory from '@/components/ReceiveHistory.vue'
-import { getStorage, setStorage } from '@/utils/storage'
+import { getStorage, setStorage, STORAGE_KEYS } from '@/utils/storage'
 
 const store = useStore()
 
@@ -59,17 +59,17 @@ const isInWhiteList = ref(false)
 getIsInWhiteList()
 
 function getIsInWhiteList() {
-  const whiteList = getStorage('whiteList') || {}
+  const whiteList = getStorage(STORAGE_KEYS.WHITE_LIST) || {}
   isInWhiteList.value = whiteList[store.state.target.uuid] === true
 }
 
 function setIsInWhiteList(isInWhiteList) {
-  const whiteList = getStorage('whiteList') || {}
+  const whiteList = getStorage(STORAGE_KEYS.WHITE_LIST) || {}
   if (isInWhiteList)
     whiteList[store.state.target.uuid] = true
   else
     delete whiteList[store.state.target.uuid]
-  setStorage('whiteList', whiteList)
+  setStorage(STORAGE_KEYS.WHITE_LIST, whiteList)
   getIsInWhiteList()
 }
 

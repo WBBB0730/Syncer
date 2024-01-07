@@ -5,7 +5,7 @@ import { Button } from '@rneui/themed'
 import { Text, View } from 'react-native'
 import PushNotification from 'react-native-push-notification'
 import { notify } from '../utils/notify'
-import { getStorage } from '../utils/storage'
+import { getStorage, STORAGE_KEYS } from '../utils/storage'
 
 const udpSocket = dgram.createSocket({ type: 'udp4' })
 udpSocket.bind(5742)
@@ -66,7 +66,7 @@ async function handleConnect({ uuid, name, device }, port, address) {
   if (store.status !== 'available')
     return
 
-  const whiteList = await getStorage('whiteList') || {}
+  const whiteList = await getStorage(STORAGE_KEYS.WHITE_LIST) || {}
   if (whiteList[uuid]) {
     await store.accept({ uuid, name, device, port, address })
     notify('连接成功', name)

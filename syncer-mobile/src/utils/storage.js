@@ -25,7 +25,15 @@ async function getStorage(key) {
   return await storage.load({ key }).catch(() => null)
 }
 
+const STORAGE_KEYS = {
+  NAME: 'name',
+  UUID: 'uuid',
+  WHITE_LIST: 'whiteList',
+  RECEIVE_HISTORY: 'receiveHistory',
+}
+
 export {
   setStorage,
-  getStorage
+  getStorage,
+  STORAGE_KEYS,
 }
