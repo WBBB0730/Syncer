@@ -4,6 +4,11 @@
     <a-button @click="disconnect">断开连接</a-button>
     <ReceiveHistory />
   </div>
+
+  <div class="white-list">
+    <a-checkbox :checked="isInWhiteList" @change="setIsInWhiteList(!isInWhiteList)">自动接受此设备的连接请求</a-checkbox>
+  </div>
+
   <a-segmented v-model:value="type" class="select-type" :options="[
     { value: 'text', label: '发送文本' },
     { value: 'file', label: '发送文件' },
@@ -38,6 +43,7 @@ import { PlusOutlined } from '@ant-design/icons-vue'
 import { fileToBase64 } from '@/utils/file'
 import { message, Modal } from 'ant-design-vue'
 import ReceiveHistory from '@/components/ReceiveHistory.vue'
+import { getStorage, setStorage } from '@/utils/storage'
 
 const store = useStore()
 
@@ -47,6 +53,24 @@ function disconnect() {
     type: 'disconnect'
   })
   store.dispatch('disconnect')
+}
+
+const isInWhiteList = ref(false)
+getIsInWhiteList()
+
+function getIsInWhiteList() {
+  const whiteList = getStorage('whiteList') || {}
+  isInWhiteList.value = whiteList[store.state.target.uuid] === true
+}
+
+function setIsInWhiteList(isInWhiteList) {
+  const whiteList = getStorage('whiteList') || {}
+  if (isInWhiteList)
+    whiteList[store.state.target.uuid] = true
+  else
+    delete whiteList[store.state.target.uuid]
+  setStorage('whiteList', whiteList)
+  getIsInWhiteList()
 }
 
 const type = ref('text')

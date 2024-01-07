@@ -3,11 +3,14 @@
 .target {
   display: flex;
   gap: 16px;
-  margin-bottom: 16px;
 }
 
 :deep(.receive-history__show-button) {
   margin-left: auto;
+}
+
+.white-list {
+  margin-bottom: 16px;
 }
 
 .select-type {

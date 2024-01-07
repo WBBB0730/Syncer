@@ -8,13 +8,16 @@ export default StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 16,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   targetName: {
     maxWidth: 240,
     color: theme.mainTextColor,
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  whiteList: {
+    marginBottom: 16,
   },
   selectType: {
     marginHorizontal: 0,

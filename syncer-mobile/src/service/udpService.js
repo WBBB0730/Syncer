@@ -5,6 +5,7 @@ import { Button } from '@rneui/themed'
 import { Text, View } from 'react-native'
 import PushNotification from 'react-native-push-notification'
 import { notify } from '../utils/notify'
+import { getStorage } from '../utils/storage'
 
 const udpSocket = dgram.createSocket({ type: 'udp4' })
 udpSocket.bind(5742)
@@ -61,7 +62,17 @@ function handleAvailable({ uuid, name, device }, port, address) {
 }
 
 /** 处理type为connect的UDP数据 */
-function handleConnect({ uuid, name, device }, port, address) {
+async function handleConnect({ uuid, name, device }, port, address) {
+  if (store.status !== 'available')
+    return
+
+  const whiteList = await getStorage('whiteList') || {}
+  if (whiteList[uuid]) {
+    await store.accept({ uuid, name, device, port, address })
+    notify('连接成功', name)
+    return
+  }
+
   const refuse = () => {
     sendUdpData({ type: 'refuse' }, port, address)
     Modal.hide()
@@ -72,6 +83,7 @@ function handleConnect({ uuid, name, device }, port, address) {
     Modal.hide()
   }
 
+  notify('连接请求', name)
   Modal.show({
     title: '连接请求',
     content: (
@@ -88,7 +100,6 @@ function handleConnect({ uuid, name, device }, port, address) {
       </>
     )
   })
-  notify('连接请求', name)
 }
 
 /** 处理type为refuse的UDP数据 */

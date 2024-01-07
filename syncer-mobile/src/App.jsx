@@ -65,15 +65,24 @@ const elementsTheme = createTheme({
       errorStyle: {
         display: 'none',
       }
+    },
+    CheckBox: {
+      iconType: 'material-community',
+      checkedIcon: 'checkbox-marked',
+      uncheckedIcon: 'checkbox-blank-outline',
+      containerStyle: {
+        padding: 0,
+        marginLeft: 0,
+        marginRight: 0,
+      }
     }
   }
 })
 
 const styles = StyleSheet.create({
-  app: {
-    color: 'red'
-  },
   page: {
-    padding: 16
+    flexGrow: 1,
+    padding: 16,
+    backgroundColor: theme.bgColorWhite,
   }
 })

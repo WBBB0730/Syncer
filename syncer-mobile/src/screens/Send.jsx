@@ -1,6 +1,6 @@
 import { Image, ImageBackground, ScrollView, Text, ToastAndroid, Touchable, TouchableOpacity, View } from 'react-native'
-import { useState } from 'react'
-import { Button, ButtonGroup, Input } from '@rneui/themed'
+import { useEffect, useState } from 'react'
+import { Button, ButtonGroup, CheckBox, Input } from '@rneui/themed'
 import { sendTcpData } from '../service/tcpService'
 import store from '../store'
 import { observer } from 'mobx-react'
@@ -12,6 +12,7 @@ import sleep from '../utils/sleep'
 import { Modal, modalStyles } from '../components/Modal'
 import { showReceiveHistory } from '../components/ReceiveHistory'
 import theme from '../styles/theme'
+import { getStorage, setStorage } from '../utils/storage'
 
 export default () => {
   const [type, setType] = useState('text')
@@ -19,6 +20,7 @@ export default () => {
   return (
     <View>
       <Target />
+      <WhiteList />
       <SelectType type={ type } setType={ setType } />
       <SendContent type={ type } />
     </View>
@@ -44,6 +46,39 @@ const Target = observer(() => {
     </View>
   )
 })
+
+const WhiteList = () => {
+  const [isInWhiteList, setIsInWhiteList] = useState(false)
+
+  useEffect(() => {
+    getStorage('whiteList').then((whiteList) => {
+      whiteList = whiteList || {}
+      setIsInWhiteList(whiteList[store.target.uuid] === true)
+    })
+  }, [])
+
+  async function getIsInWhiteList() {
+    const whiteList = await getStorage('whiteList') || {}
+    setIsInWhiteList(whiteList[store.target.uuid] === true)
+  }
+
+  async function setIsInWhiteList_(isInWhiteList) {
+    const whiteList = await getStorage('whiteList') || {}
+    if (isInWhiteList)
+      whiteList[store.target.uuid] = true
+    else
+      delete whiteList[store.target.uuid]
+    await setStorage('whiteList', whiteList)
+    await getIsInWhiteList()
+  }
+
+  return (
+    <View style={ styles.whiteList }>
+      <CheckBox checked={ isInWhiteList } size={ 20 } title="自动接受此设备的连接请求"
+                onPress={ () => setIsInWhiteList_(!isInWhiteList) } />
+    </View>
+  )
+}
 
 
 const typeList = ['text', 'file', 'command']
