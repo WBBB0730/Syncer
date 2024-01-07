@@ -1,7 +1,7 @@
 import net from 'react-native-tcp-socket'
 import store from '../store'
 import Clipboard from '@react-native-clipboard/clipboard'
-import { Text, ToastAndroid, View } from 'react-native'
+import { Text, ToastAndroid, Vibration, View } from 'react-native'
 import { Modal, modalStyles } from '../components/Modal'
 import { Button } from '@rneui/themed'
 import RNFS from 'react-native-fs'
@@ -212,6 +212,7 @@ let volume = 0.5
 
 function handleRing({ content }) {
   const startRing = async () => {
+    Vibration.vibrate([0, 1000, 1000], true)
     if (!sound)
       return
     volume = (await VolumeManager.getVolume()).volume
@@ -231,6 +232,7 @@ function handleRing({ content }) {
   }
 
   const stopRing = async () => {
+    Vibration.cancel()
     sound.stop()
     Modal.hide()
     await VolumeManager.setVolume(volume)

@@ -63,7 +63,7 @@ export default StyleSheet.create({
     fontSize: 14
   },
   listWrap: {
-    height: height * 0.5,
+    height: height * 0.4,
   },
   showMore: {
     width: 100
