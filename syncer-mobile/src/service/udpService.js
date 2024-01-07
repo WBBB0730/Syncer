@@ -3,6 +3,8 @@ import store from '../store'
 import { Modal, modalStyles } from '../components/Modal'
 import { Button } from '@rneui/themed'
 import { Text, View } from 'react-native'
+import PushNotification from 'react-native-push-notification'
+import { notify } from '../utils/notify'
 
 const udpSocket = dgram.createSocket({ type: 'udp4' })
 udpSocket.bind(5742)
@@ -85,6 +87,7 @@ function handleConnect({ uuid, name, device }, port, address) {
       </>
     )
   })
+  notify('连接请求', name)
 }
 
 /** 处理type为refuse的UDP数据 */
