@@ -3,11 +3,15 @@ import theme from "./theme";
 const { height } = Dimensions.get('window')
 
 export default StyleSheet.create({
+  path: {
+    color: theme.tipTextColor,
+    marginBottom: 8,
+  },
   operation: {
     display: 'flex',
     flexDirection: 'row',
     alignItems:'center',
-    marginBottom: 16,
+    marginBottom: 8,
   },
   operationRight: {
     display: 'flex',
@@ -46,11 +50,12 @@ export default StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingVertical: 8,
   },
   itemDetails: {
     display: 'flex',
-    gap: 8,
-    paddingBottom: 8,
+    gap: 6,
+    width: 0,
     flexGrow: 1,
   },
   fileName: {
@@ -62,10 +67,10 @@ export default StyleSheet.create({
     fontSize: 12,
   },
   showMore: {
-    width: 100
+    width: 100,
   },
   noMore: {
-    paddingVertical: 16,
+    paddingVertical: 8,
     color: theme.tipTextColor,
   }
 })

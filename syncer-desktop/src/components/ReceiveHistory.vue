@@ -39,7 +39,7 @@
 <script setup>
 import { FileTextOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { computed, reactive, ref } from 'vue'
-import { getStorage, setStorage } from '@/utils/storage'
+import { getStorage, setStorage, STORAGE_KEYS } from '@/utils/storage'
 import dayjs from 'dayjs'
 import { shell } from 'electron'
 import fs from 'fs'
@@ -54,7 +54,7 @@ const list = computed(() => receiveHistory.slice(0, pageIndex.value * 20))
 function show() {
   visible.value = true
   pageIndex.value = 1
-  const temp = getStorage('receiveHistory') || []
+  const temp = getStorage(STORAGE_KEYS.RECEIVE_HISTORY) || []
   receiveHistory.length = 0
   receiveHistory.push(...temp.map(item => ({ ...item, selected: false })))
 }
@@ -95,7 +95,7 @@ function deleteSelectedItems() {
   const temp = receiveHistory.filter(item => !item.selected)
   receiveHistory.length = 0
   receiveHistory.push(...temp)
-  setStorage('receiveHistory', receiveHistory)
+  setStorage(STORAGE_KEYS.RECEIVE_HISTORY, receiveHistory)
   selecting.value = false
 }
 

@@ -6,7 +6,7 @@ import { ipcRenderer } from 'electron'
 import fsPromise from 'fs/promises'
 import fs from 'fs'
 import { h } from 'vue'
-import { getStorage, setStorage } from '@/utils/storage'
+import { getStorage, setStorage, STORAGE_KEYS } from '@/utils/storage'
 import { notify } from '@/utils/notify'
 
 let tcpSocket = null
@@ -158,14 +158,14 @@ function handleFile({ content }) {
     onOk: async () => {
       const res = dialog.showOpenDialogSync({
         title: '保存文件',
-        defaultPath: getStorage('filePath') || undefined,
+        defaultPath: getStorage(STORAGE_KEYS.FILE_PATH) || undefined,
         properties: ['openDirectory']
       })
       if (!res)
         return Promise.reject('')
       const path = res[0]
-      setStorage('filePath', path)
-      const receiveHistory = getStorage('receiveHistory') || []
+      setStorage(STORAGE_KEYS.FILE_PATH, path)
+      const receiveHistory = getStorage(STORAGE_KEYS.RECEIVE_HISTORY) || []
       for (const file of content) {
         const name = file.name.slice(0, file.name.lastIndexOf('.'))
         const type = file.name.slice(file.name.lastIndexOf('.'))
@@ -175,7 +175,7 @@ function handleFile({ content }) {
         await fsPromise.writeFile(path + '/' + file.name, file.data, { encoding: 'base64' })
         receiveHistory.unshift({ name: file.name, path, time: Date.now() })
       }
-      setStorage('receiveHistory', receiveHistory)
+      setStorage(STORAGE_KEYS.RECEIVE_HISTORY, receiveHistory)
     },
     centered: true,
   })

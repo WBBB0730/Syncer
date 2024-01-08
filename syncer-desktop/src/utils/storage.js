@@ -7,10 +7,23 @@ function setStorage(key, data) {
 
 function getStorage(key) {
   const data = localStorage.getItem(key)
-  return data ? JSON.parse(data) : null
+  try {
+    return data ? JSON.parse(data) : null
+  } catch (e) {
+    return null
+  }
+}
+
+const STORAGE_KEYS = {
+  NAME: 'name',
+  UUID: 'uuid',
+  WHITE_LIST: 'whiteList',
+  RECEIVE_HISTORY: 'receiveHistory',
+  FILE_PATH: 'filePath',
 }
 
 export {
   setStorage,
   getStorage,
+  STORAGE_KEYS,
 }

@@ -4,7 +4,7 @@ import { DesktopOutlined, MobileOutlined, QuestionOutlined } from '@ant-design/i
 import { Modal } from 'ant-design-vue'
 import { h } from 'vue'
 import { notify } from '@/utils/notify'
-import { getStorage } from '@/utils/storage'
+import { getStorage, STORAGE_KEYS } from '@/utils/storage'
 
 const udpSocket = dgram.createSocket('udp4')
 udpSocket.bind({ port: 5742 }, () => {
@@ -61,7 +61,7 @@ function handleAvailable({ uuid, name, device }, port, address) {
 async function handleConnect({ uuid, name, device }, port, address) {
   if (store.state.status !== 'available')
     return
-  const whiteList = getStorage('whiteList') || {}
+  const whiteList = getStorage(STORAGE_KEYS.WHITE_LIST) || {}
   if (whiteList[uuid]) {
     await store.dispatch('accept', { uuid, name, device, port, address })
     notify('连接成功', name)

@@ -11,7 +11,7 @@ import { Loading } from '../components/Loading'
 import sleep from '../utils/sleep'
 import { notify } from '../utils/notify'
 import ReceiveHistory from '../components/ReceiveHistory'
-import { getStorage, setStorage } from '../utils/storage'
+import { getStorage, setStorage, STORAGE_KEYS } from '../utils/storage'
 
 
 let tcpSocket = null
@@ -172,7 +172,7 @@ function handleFile({ content }) {
     const exists = await RNFS.exists(path)
     if (!exists)
       await RNFS.mkdir(path)
-    const receiveHistory = await getStorage('receiveHistory')||[]
+    const receiveHistory = await getStorage(STORAGE_KEYS.RECEIVE_HISTORY)||[]
     for (const file of content) {
       const name = file.name.slice(0, file.name.lastIndexOf('.'))
       const type = file.name.slice(file.name.lastIndexOf('.'))
@@ -183,7 +183,7 @@ function handleFile({ content }) {
       receiveHistory.unshift({ name: file.name, time: Date.now() })
     }
     ToastAndroid.show('已保存到' + path, ToastAndroid.LONG)
-    await setStorage('receiveHistory', receiveHistory)
+    await setStorage(STORAGE_KEYS.RECEIVE_HISTORY, receiveHistory)
   }
 
   Modal.show({

@@ -1,7 +1,7 @@
 import { makeAutoObservable } from 'mobx'
 import { randomNumber } from '../utils/random'
 import uuid from 'react-native-uuid'
-import { getStorage, setStorage } from '../utils/storage'
+import { getStorage, setStorage, STORAGE_KEYS } from '../utils/storage'
 import { sendUdpData } from '../service/udpService'
 import { closeTcpServer, closeTcpSocket, connectTcpServer, openTcpServer, sendTcpData } from '../service/tcpService'
 
@@ -15,13 +15,13 @@ class Store {
 
   constructor() {
     makeAutoObservable(this)
-    initValue('name', `MOBILE_${ randomNumber(5) }`).then((name) => this.setName(name))
-    initValue('uuid', uuid.v4()).then((uuid) => this.setUuid(uuid))
+    initValue(STORAGE_KEYS.NAME, `MOBILE_${ randomNumber(5) }`).then((name) => this.setName(name))
+    initValue(STORAGE_KEYS.UUID, uuid.v4()).then((uuid) => this.setUuid(uuid))
   }
 
   setUuid(uuid) {
     this.uuid = uuid
-    setStorage('uuid', uuid).then()
+    setStorage(STORAGE_KEYS.UUID, uuid).then()
   }
 
   /**
@@ -31,7 +31,7 @@ class Store {
 
   setName(name) {
     this.name = name
-    setStorage('name', name).then()
+    setStorage(STORAGE_KEYS.NAME, name).then()
   }
 
   clearAvailableDeviceMap() {
