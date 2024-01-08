@@ -21,7 +21,7 @@ import Loading from './components/Loading'
 export default () => {
   return (
     <ThemeProvider theme={ elementsTheme }>
-      <StatusBar barStyle="dark-content" backgroundColor="#fafafa" />
+      <StatusBar barStyle="dark-content" backgroundColor={ theme.bgColorWhite } />
       <Page />
       <Modal />
       <Loading />

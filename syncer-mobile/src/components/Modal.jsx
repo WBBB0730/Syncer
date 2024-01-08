@@ -47,7 +47,7 @@ const modalStyles = StyleSheet.create({
     maxHeight: '80%',
     padding: 16,
     borderRadius: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.bgColorWhite,
     overflow: 'scroll',
   },
   title: {

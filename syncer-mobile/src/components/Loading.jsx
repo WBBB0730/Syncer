@@ -32,7 +32,7 @@ const loadingStyles = StyleSheet.create({
   overlay: {
     width: 100,
     height: 100,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.bgColorWhite,
     shadowColor: '#00000000',
     borderRadius: 8,
   },
@@ -46,7 +46,7 @@ const loadingStyles = StyleSheet.create({
     maxHeight: '80%',
     padding: 16,
     borderRadius: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: theme.bgColorWhite,
     overflow: 'scroll',
   },
   title: {
