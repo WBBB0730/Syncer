@@ -7,7 +7,11 @@ function setStorage(key, data) {
 
 function getStorage(key) {
   const data = localStorage.getItem(key)
-  return data ? JSON.parse(data) : null
+  try {
+    return data ? JSON.parse(data) : null
+  } catch (e) {
+    return null
+  }
 }
 
 const STORAGE_KEYS = {
