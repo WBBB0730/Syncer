@@ -26,10 +26,10 @@ export default StyleSheet.create({
   sendTextTitle: {
     marginBottom: 8,
     color: theme.mainTextColor,
-    fontSize: 16,
+    fontSize: 14,
   },
   inputText: {
-    marginBottom: 16,
+    marginBottom: 14,
     minHeight: 120,
     maxHeight: '60%',
   },
@@ -42,7 +42,7 @@ export default StyleSheet.create({
   },
   sendFileTitleText: {
     color: theme.mainTextColor,
-    fontSize: 16,
+    fontSize: 14,
   },
   fileList: {
     maxHeight: '60%',

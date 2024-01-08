@@ -120,8 +120,7 @@ const SendText = () => {
   return (
     <View>
       <Text style={ styles.sendTextTitle }>待发送文本：</Text>
-      <Input value={ text } multiline placeholder="请输入要发送的文本"
-             inputStyle={ { fontSize: 16 } } containerStyle={ styles.inputText }
+      <Input value={ text } multiline placeholder="请输入要发送的文本" containerStyle={ styles.inputText }
              onChangeText={ setText } />
       <Button disabled={ !text } onPress={ sendText }>发送</Button>
     </View>

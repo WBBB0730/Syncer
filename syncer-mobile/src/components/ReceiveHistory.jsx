@@ -29,7 +29,9 @@ const ReceiveHistory = () => {
     () => receiveHistory.length > pageIndex * 20,
     [receiveHistory.length, pageIndex]
   )
+
   const [selecting, setSelecting] = useState(false)
+  const [path] = useState(RNFS.DownloadDirectoryPath + '/Syncer/')
 
   function handleSelectItem(i) {
     const temp = receiveHistory.slice()
@@ -55,26 +57,23 @@ const ReceiveHistory = () => {
       handleSelectItem(i)
       return
     }
-    const path = RNFS.DownloadDirectoryPath + '/Syncer/' + name
-    if (!await RNFS.exists(path)) {
+    if (!await RNFS.exists(path + name)) {
       ToastAndroid.show('文件不存在', ToastAndroid.SHORT)
       return
     }
-    await FileViewer.open(path)
+    await FileViewer.open(path + name)
   }
 
   const listItems = receiveHistory.slice(0, pageIndex * 20).map((item, index) =>
     <TouchableOpacity key={ index } style={ styles.item } activeOpacity={ 0.5 }
                       onPress={ () => handlePressItem(item.name, index) }>
-      {
-        selecting && (
-          <CheckBox
-            checked={ item.selected }
-            size={ 20 }
-            onPress={ () => handleSelectItem(index) } />)
-      }
+      { selecting && (
+        <CheckBox
+          checked={ item.selected }
+          size={ 20 }
+          onPress={ () => handleSelectItem(index) } />) }
       <View style={ styles.itemDetails }>
-        <Text style={ styles.fileName } numberOfLines={ 1 } ellipsizeMode={ 'tail' }>{ item.name }</Text>
+        <Text style={ styles.fileName } numberOfLines={ 1 } ellipsizeMode="middle">{ item.name }</Text>
         <Text style={ styles.time }>{ moment(item.time).format('YYYY-MM-DD HH:mm') }</Text>
       </View>
       <Icon name="right" size={ 14 } color={ theme.tipTextColor } />
@@ -83,26 +82,25 @@ const ReceiveHistory = () => {
     <>
       <View>
         <View style={ styles.operation }>
-          {
-            selecting ? (
-              <CheckBox
-                checked={ allSelected }
-                size={ 20 }
-                title="全选"
-                textStyle={ styles.selectAll }
-                onPress={ selectAll } />
-            ) : <Text>共 { receiveHistory.length } 条记录</Text>
-          }
+          { selecting ? (
+            <CheckBox
+              checked={ allSelected }
+              size={ 20 }
+              title="全选"
+              textStyle={ styles.selectAll }
+              onPress={ selectAll } />
+          ) : <Text>共 { receiveHistory.length } 条记录</Text> }
           <View style={ styles.operationRight }>
             <Button onPress={ () => setSelecting(!selecting) } type="outline"
                     buttonStyle={ styles.button }
                     titleStyle={ styles.select }>{ selecting ? '取消' : '选择' }</Button>
             { selecting && (
               <Button onPress={ deleteSelectedItems }
-                      disabled={ selectedList.length === 0 } color="error"
+                      disabled={ selectedList.length === 0 } color={ theme.dangerColor }
                       buttonStyle={ styles.button } titleStyle={ styles.delete }>删除</Button>) }
           </View>
         </View>
+        <Text style={ styles.path }>{ path }</Text>
         <ScrollView contentContainerStyle={ styles.list } style={ styles.listWrap }>
           { listItems }
           { hasMore ? (

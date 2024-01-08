@@ -44,6 +44,9 @@ const elementsTheme = createTheme({
     Button: {
       buttonStyle: {
         borderRadius: 6,
+      },
+      titleStyle: {
+        fontSize: 14,
       }
     },
     ButtonGroup: {
@@ -61,6 +64,9 @@ const elementsTheme = createTheme({
       },
       inputContainerStyle: {
         borderBottomWidth: 0,
+      },
+      inputStyle: {
+        fontSize: 14,
       },
       errorStyle: {
         display: 'none',
