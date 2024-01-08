@@ -50,9 +50,9 @@ const ReceiveHistory = () => {
     setSelecting(false)
   }
 
-  async function handlePressItem(name, i) {
+  async function handlePressItem(name, index) {
     if (selecting) {
-      handleSelectItem(i)
+      handleSelectItem(index)
       return
     }
     const path = RNFS.DownloadDirectoryPath + '/Syncer/' + name
@@ -63,7 +63,7 @@ const ReceiveHistory = () => {
     await FileViewer.open(path)
   }
 
-  const listItems = receiveHistory.slice(0, pageIndex * 20).map((item, index) =>
+  const listItems = receiveHistory.slice(0, pageIndex * 20).map((item, index) => (
     <TouchableOpacity key={ index } style={ styles.item } activeOpacity={ 0.5 }
                       onPress={ () => handlePressItem(item.name, index) }>
       {
@@ -71,14 +71,16 @@ const ReceiveHistory = () => {
           <CheckBox
             checked={ item.selected }
             size={ 20 }
-            onPress={ () => handleSelectItem(index) } />)
+            onPress={ () => handleSelectItem(index) } />
+        )
       }
       <View style={ styles.itemDetails }>
         <Text style={ styles.fileName } numberOfLines={ 1 } ellipsizeMode={ 'tail' }>{ item.name }</Text>
         <Text style={ styles.time }>{ moment(item.time).format('YYYY-MM-DD HH:mm') }</Text>
       </View>
       <Icon name="right" size={ 14 } color={ theme.tipTextColor } />
-    </TouchableOpacity>)
+    </TouchableOpacity>
+  ))
   return (
     <>
       <View>
@@ -94,21 +96,25 @@ const ReceiveHistory = () => {
             ) : <Text>共 { receiveHistory.length } 条记录</Text>
           }
           <View style={ styles.operationRight }>
-            <Button onPress={ () => setSelecting(!selecting) } type="outline"
-                    buttonStyle={ styles.button }
-                    titleStyle={ styles.select }>{ selecting ? '取消' : '选择' }</Button>
-            { selecting && (
-              <Button onPress={ deleteSelectedItems }
-                      disabled={ selectedList.length === 0 } color="error"
-                      buttonStyle={ styles.button } titleStyle={ styles.delete }>删除</Button>) }
+            <Button type="outline" buttonStyle={ styles.button } titleStyle={ styles.select }
+                    onPress={ () => setSelecting(!selecting) }>{ selecting ? '取消' : '选择' }</Button>
+            {
+              selecting && (
+                <Button onPress={ deleteSelectedItems }
+                        disabled={ selectedList.length === 0 } color="error"
+                        buttonStyle={ styles.button } titleStyle={ styles.delete }>删除</Button>
+              )
+            }
           </View>
         </View>
         <ScrollView contentContainerStyle={ styles.list } style={ styles.listWrap }>
           { listItems }
-          { hasMore ? (
-            <Button type="clear" containerStyle={ styles.showMore }
-                    onPress={ () => setPageIndex(pageIndex + 1) }>显示更多</Button>
-          ) : <Text style={ styles.noMore }>没有更多了</Text> }
+          {
+            hasMore ? (
+              <Button type="clear" containerStyle={ styles.showMore }
+                      onPress={ () => setPageIndex(pageIndex + 1) }>显示更多</Button>
+            ) : <Text style={ styles.noMore }>没有更多了</Text>
+          }
         </ScrollView>
       </View>
     </>

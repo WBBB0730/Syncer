@@ -145,7 +145,7 @@ const InputIpAddress = ({ inputIpAddress = '', setInputIpAddress }) => {
     setInputIpAddress(value)
   }, [value])
   return (
-    <TextInput value={ value } style={ styles.inputIpAddress } onChangeText={ setValue } />
+    <TextInput value={ value } placeholder="请输入目标设备的IP地址" style={ styles.inputIpAddress } onChangeText={ setValue } />
   )
 }
 
