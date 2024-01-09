@@ -2,6 +2,8 @@
 
 一个用于多设备间互联互通的协作软件，目前支持 Android 和 Windows
 
+[下载最新版](https://github.com/WBBB0730/Syncer/releases/tag/v1.0.0)
+
 ps. 移动端使用 React Native 开发，桌面端使用 Electron + Vue3 开发
 
 ### 注意：Android 设备安装后一定要允许后台运行！！！
