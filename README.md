@@ -32,5 +32,4 @@ ps. 移动端使用 React Native 开发，桌面端使用 Electron + Vue3 开发
 
 移动端：
 
-
 <img src="https://wbbb-1314488277.cos.ap-guangzhou.myqcloud.com/Syncer%2Fscreenshots%2Fm-1.jpg" alt="" width="200">
