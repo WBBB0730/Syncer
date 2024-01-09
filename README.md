@@ -7,8 +7,6 @@ ps. 移动端使用 React Native 开发，桌面端使用 Electron + Vue3 开发
 ### 注意：Android 设备安装后一定要允许后台运行！！！
 * MIUI：应用信息——省电策略——无限制
 
-[WBBB's ImageEditor](http://wbbb.plus/ps)
-
 ### 已完成的功能
 * 查找、连接同一 Wi-Fi 下的设备
 * 设备重命名
