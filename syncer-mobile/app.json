@@ -1,4 +1,46 @@
 {
-  "name": "syncer",
-  "displayName": "syncer"
+  "expo": {
+    "name": "Syncer",
+    "slug": "syncer",
+    "scheme": "syncer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.syncer"
+    },
+    "android": {
+      "package": "com.syncer",
+      "permissions": [
+        "INTERNET",
+        "POST_NOTIFICATIONS",
+        "VIBRATE",
+        "ACCESS_WIFI_STATE",
+        "CHANGE_WIFI_MULTICAST_STATE",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
+        "READ_MEDIA_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-document-picker",
+      "expo-notifications",
+      "expo-sharing"
+    ]
+  }
 }

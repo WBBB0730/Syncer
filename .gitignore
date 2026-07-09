@@ -1,0 +1,19 @@
+node_modules/
+dist/
+dist_electron/
+out/
+.expo/
+*.log
+.DS_Store
+.env
+.env.*
+.idea/
+.vscode/
+*.tsbuildinfo
+.eslintcache
+
+# 本地对照 / 临时检出，不入库
+syncer-desktop-legacy/
+syncer-mobile-legacy/
+syncer-desktop-original/
+**/.claude/

@@ -1,0 +1,227 @@
+import { AntDesign as Icon } from '@expo/vector-icons';
+import { Button, Overlay } from '@rneui/themed';
+import { observer } from 'mobx-react';
+import React, { useEffect, useState } from 'react';
+import { ScrollView, Text, TextInput, View } from 'react-native';
+
+import { Modal, modalStyles } from '../components/Modal';
+import { showReceiveHistory } from '../components/ReceiveHistory';
+import { sendUdpData } from '../service/udpService';
+import store, { Device } from '../store';
+import styles from '../styles/ConnectionStyles';
+import theme from '../styles/theme';
+import { getIpAddress } from '../utils/ip';
+import sleep from '../utils/sleep';
+
+export default function Connection() {
+  return (
+    <>
+      <MyDeviceName />
+      <Search />
+      <AvailableDevices />
+      <ConnectingModal />
+    </>
+  );
+}
+
+const MyDeviceName = observer(() => {
+  const [editingName, setEditingName] = useState(false);
+  const [inputName, setInputName] = useState('');
+
+  function editName() {
+    setEditingName(true);
+    setInputName(store.name);
+  }
+
+  function cancelEditName() {
+    setEditingName(false);
+  }
+
+  function saveName() {
+    if (!inputName) return;
+    store.setName(inputName);
+    setEditingName(false);
+  }
+
+  return (
+    <View style={styles.myDeviceName}>
+      {editingName ? (
+        <>
+          <View>
+            <TextInput
+              value={inputName}
+              style={styles.inputName}
+              placeholder="请输入设备名称"
+              onChangeText={setInputName}
+            />
+          </View>
+          <Button type="clear" icon={<Icon name="close" size={20} color={theme.brandColor} />} onPress={cancelEditName} />
+          <Button type="clear" icon={<Icon name="check" size={20} color={theme.brandColor} />} onPress={saveName} />
+        </>
+      ) : (
+        <>
+          <Text numberOfLines={1} ellipsizeMode="tail" style={styles.myDeviceNameText}>
+            {store.name}
+          </Text>
+          <Button type="clear" icon={<Icon name="edit" size={20} color={theme.brandColor} />} onPress={editName} />
+          <Button
+            type="clear"
+            icon={<Icon name="file-text" size={20} color={theme.secondaryTextColor} />}
+            containerStyle={{ marginLeft: 'auto' }}
+            onPress={showReceiveHistory}
+          />
+        </>
+      )}
+    </View>
+  );
+});
+
+const Search = () => {
+  const [searching, setSearching] = useState(false);
+  const [ipAddress, setIpAddress] = useState('');
+  const [inputIpAddress, setInputIpAddress] = useState('');
+  const [flag, setFlag] = useState(false);
+
+  useEffect(() => {
+    search();
+  }, []);
+
+  useEffect(() => {
+    if (flag) {
+      search();
+      setFlag(false);
+    }
+  }, [flag]);
+
+  /** 查找同一局域网内的设备 */
+  async function search() {
+    getIpAddress().then(setIpAddress);
+
+    const ipAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(inputIpAddress) && inputIpAddress;
+    store.clearAvailableDeviceMap();
+
+    setSearching(true);
+    for (let i = 0; i < 5; i += 1) {
+      sendUdpData({ type: 'search' }, 5742, '255.255.255.255');
+      if (ipAddress) sendUdpData({ type: 'search' }, 5742, ipAddress);
+      await sleep(500);
+    }
+    setSearching(false);
+  }
+
+  function manualSearch() {
+    Modal.show({
+      title: '手动查找',
+      content: <InputIpAddress inputIpAddress={inputIpAddress} setInputIpAddress={setInputIpAddress} />,
+      footer: (
+        <>
+          <Button type="outline" containerStyle={{ flexGrow: 1 }} onPress={Modal.hide}>
+            取消
+          </Button>
+          <Button
+            containerStyle={{ flexGrow: 1 }}
+            onPress={() => {
+              Modal.hide();
+              setFlag(true);
+            }}
+          >
+            确定
+          </Button>
+        </>
+      ),
+    });
+  }
+
+  return (
+    <>
+      <Text style={styles.myIpAddress}>{ipAddress}</Text>
+      <View style={styles.availableTitle}>
+        <Text style={styles.availableTitleText}>可用设备</Text>
+        <Button
+          loading={searching}
+          type="outline"
+          buttonStyle={styles.searchButton}
+          titleStyle={styles.searchButtonText}
+          onPress={search}
+        >
+          查找
+        </Button>
+        <Button
+          disabled={searching}
+          type="outline"
+          buttonStyle={styles.manualSearchButton}
+          titleStyle={styles.searchButtonText}
+          onPress={manualSearch}
+        >
+          手动查找
+        </Button>
+      </View>
+    </>
+  );
+};
+
+type InputIpAddressProps = {
+  inputIpAddress: string;
+  setInputIpAddress: (value: string) => void;
+};
+
+const InputIpAddress = ({ inputIpAddress = '', setInputIpAddress }: InputIpAddressProps) => {
+  const [value, setValue] = useState(inputIpAddress);
+
+  useEffect(() => {
+    setInputIpAddress(value);
+  }, [value, setInputIpAddress]);
+
+  return (
+    <TextInput
+      value={value}
+      placeholder="请输入目标设备的IP地址"
+      style={styles.inputIpAddress}
+      onChangeText={setValue}
+    />
+  );
+};
+
+const AvailableDevices = observer(() => {
+  return (
+    <ScrollView style={styles.availableDevices}>
+      {Array.from(store.availableDeviceMap.values()).map((device: Device) => (
+        <View key={device.uuid} style={styles.availableDevice}>
+          <Icon
+            name={device.device === 'desktop' ? 'laptop' : device.device === 'mobile' ? 'mobile' : 'question'}
+            size={32}
+            color={theme.mainTextColor}
+          />
+          <View style={styles.availableDeviceInfo}>
+            <Text numberOfLines={1} ellipsizeMode="tail" style={styles.availableDeviceName}>
+              {device.name}
+            </Text>
+            <Text style={styles.availableDeviceAddress}>{device.address}</Text>
+          </View>
+          <Button buttonStyle={styles.connectButton} titleStyle={styles.connectButtonText} onPress={() => store.connect(device)}>
+            连接
+          </Button>
+        </View>
+      ))}
+      <Text style={styles.tip}>请确保设备已连接至同一个 Wi-Fi 网络</Text>
+    </ScrollView>
+  );
+});
+
+const ConnectingModal = observer(() => {
+  return (
+    <Overlay isVisible={store.status === 'connecting'} overlayStyle={modalStyles.modal}>
+      <Text style={modalStyles.title}>正在连接</Text>
+      <View style={modalStyles.content}>
+        <Text>等待 {store.target ? store.target.name : ''} 接受连接请求</Text>
+      </View>
+      <View style={modalStyles.footer}>
+        <View style={modalStyles.button}>
+          <Button type="outline" onPress={() => store.cancel()}>
+            取消
+          </Button>
+        </View>
+      </View>
+    </Overlay>
+  );
+});

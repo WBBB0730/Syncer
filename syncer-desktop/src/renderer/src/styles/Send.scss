@@ -1,0 +1,35 @@
+@import "./theme";
+
+.target {
+  display: flex;
+  gap: 16px;
+}
+
+:deep(.receive-history__show-button) {
+  margin-left: auto;
+}
+
+.white-list {
+  margin-bottom: 16px;
+}
+
+.select-type {
+  margin-bottom: 16px;
+}
+
+.input-text {
+  margin-bottom: 16px;
+}
+
+.input-file {
+  .icon {
+    margin-bottom: 8px;
+    color: $brand-color;
+    font-size: 24px;
+    font-weight: bold;
+  }
+}
+
+.send-file-button {
+  margin-top: 16px;
+}

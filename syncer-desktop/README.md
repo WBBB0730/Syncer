@@ -1,26 +1,34 @@
 # syncer-desktop
 
-## Project setup
-```
-npm install -g -P windows-build-tools
-npm install
-npm run postinstall
+An Electron application with Vue and TypeScript
+
+## Recommended IDE Setup
+
+- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
+
+## Project Setup
+
+### Install
+
+```bash
+$ npm install
 ```
 
-### Compiles and hot-reloads for development
-```
-npm run electron:serve
+### Development
+
+```bash
+$ npm run dev
 ```
 
-### Compiles and minifies for production
-```
-npm run electron:build
-```
+### Build
 
-### Lints and fixes files
-```
-npm run lint
-```
+```bash
+# For windows
+$ npm run build:win
 
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+# For macOS
+$ npm run build:mac
+
+# For Linux
+$ npm run build:linux
+```
