@@ -102,7 +102,7 @@ pnpm --filter syncer-mobile exec expo run:ios
 - `v1.0.0`：构建 `com.wbbb.syncer` Android release APK 和 Windows 生产安装包，并发布正式 GitHub Release。
 - `v1.0.0-beta.0`：使用独立签名构建 `com.wbbb.syncer.beta` Android release APK 和 Windows 生产安装包，并发布 GitHub Prerelease。
 
-GitHub Actions 只在推送上述版本 tag 时运行。Android 正式版与 Beta 各自配置 `SYNCER_ANDROID_PRODUCTION_*` 和 `SYNCER_ANDROID_BETA_*` 四个 Actions secrets，后缀均为 `KEYSTORE_BASE64`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`；iOS 暂不进入自动发布。
+GitHub Actions 在 `main` push 与 pull request 上运行协议、桌面端、移动端和原生构建检查；只有上述版本 tag 会触发自动发布。默认分支 CI 维护可供 tag 发布恢复的 pnpm、Gradle 与 Electron 构建缓存，其中 pull request 和 tag 不写入共享的 Gradle 或 Electron 缓存；所有工作流在无缓存时仍须能从干净检出完成。Android 正式版与 Beta 各自配置 `SYNCER_ANDROID_PRODUCTION_*` 和 `SYNCER_ANDROID_BETA_*` 四个 Actions secrets，后缀均为 `KEYSTORE_BASE64`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`；iOS 暂不进入自动发布。
 
 ## 已完成的功能
 

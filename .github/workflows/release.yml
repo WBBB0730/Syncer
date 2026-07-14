@@ -93,7 +93,9 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-          cache: gradle
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          cache-read-only: true
 
       - name: Prepare Android production release keystore
         if: needs.metadata.outputs.release_channel == 'production'
@@ -138,7 +140,7 @@ jobs:
           SYNCER_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SYNCER_ANDROID_PRODUCTION_KEYSTORE_PASSWORD }}
           SYNCER_ANDROID_KEY_ALIAS: ${{ secrets.SYNCER_ANDROID_PRODUCTION_KEY_ALIAS }}
           SYNCER_ANDROID_KEY_PASSWORD: ${{ secrets.SYNCER_ANDROID_PRODUCTION_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon --build-cache
 
       - name: Build Android beta release APK
         if: needs.metadata.outputs.release_channel == 'beta'
@@ -149,7 +151,7 @@ jobs:
           SYNCER_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SYNCER_ANDROID_BETA_KEYSTORE_PASSWORD }}
           SYNCER_ANDROID_KEY_ALIAS: ${{ secrets.SYNCER_ANDROID_BETA_KEY_ALIAS }}
           SYNCER_ANDROID_KEY_PASSWORD: ${{ secrets.SYNCER_ANDROID_BETA_KEY_PASSWORD }}
-        run: ./gradlew :app:assembleRelease --no-daemon
+        run: ./gradlew :app:assembleRelease --no-daemon --build-cache
 
       - id: apk
         name: Collect Android APK
@@ -175,6 +177,9 @@ jobs:
     name: Build Windows installer
     needs: metadata
     runs-on: windows-2025
+    env:
+      electron_config_cache: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.1
       - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
@@ -183,6 +188,15 @@ jobs:
           node-version: 22.18.0
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
+      - name: Restore Electron caches
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ${{ env.electron_config_cache }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.yml') }}
+          restore-keys: |
+            electron-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Install dependencies
         run: pnpm --filter syncer-desktop... install --frozen-lockfile

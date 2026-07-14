@@ -28,14 +28,16 @@ Syncer 桌面端与移动端长期停留在已过时的脚手架与运行时（E
 - iOS 真机 Discovery / Presence 依赖 Apple 批准的 Multicast Networking Entitlement 及包含该能力的 provisioning profile；仓库只能声明配置，不能代替外部申请与签名。
 - 网络与 Session 模型遵循 ADR-0004，线协议遵循 ADR-0005，File Transfer 资源模型遵循 ADR-0006，Android 公共下载保存遵循 ADR-0007。
 - Android 正式版使用 `com.wbbb.syncer` 与独立的 Production Key，Beta 使用 `com.wbbb.syncer.beta` 与独立的 Beta Key；两者可并存安装且不共享应用数据或签名身份，详见 ADR-0008。
-- 版本由 bumpp 统一更新根项目、桌面端与移动端，共享协议保持独立版本；只在推送 `vX.Y.Z` 或 `vX.Y.Z-beta.N` tag 时触发 GitHub Actions，两种 tag 都生成 Android release APK 与 Windows 生产安装包，Beta 通过独立发布身份与 GitHub Prerelease 区分，iOS 不在当前自动发布范围内。
+- 版本由 bumpp 统一更新根项目、桌面端与移动端，共享协议保持独立版本；`main` push 与 pull request 触发持续集成，只在推送 `vX.Y.Z` 或 `vX.Y.Z-beta.N` tag 时触发自动发布。两种 tag 都生成 Android release APK 与 Windows 生产安装包，Beta 通过独立发布身份与 GitHub Prerelease 区分，iOS 不在当前自动发布范围内。
 
 ## Testing Decisions
 
 - 协议：`pnpm --filter @syncer/protocol typecheck`、`pnpm --filter @syncer/protocol test`（测试命令会先构建协议，再运行帧、握手、Session 与 File Transfer 测试）。
 - 桌面：`pnpm --filter syncer-desktop lint`、`typecheck`、`test`（旧数据迁移、renderer 协议边界、TCP 身份、原子持久化与接收文件暂存/发布适配器）及 `build:win`。
 - 移动：`pnpm --filter syncer-mobile lint`、`typecheck`、`test`；本地使用 pnpm 调用 Expo Doctor、干净 prebuild 与对应平台的 run 命令。
+- 持续集成在 `main` push 与 pull request 上执行协议、桌面端和移动端检查，从干净 CNG 项目运行 Android 原生模块检查与 Debug 构建，并在 Windows 上验证桌面端打包；pull request 不写入共享的 Gradle 或 Electron 缓存。
 - 自动发布必须从干净检出安装冻结的 pnpm lockfile，并在各平台构建前先构建共享协议；两个平台都成功后才创建 GitHub Release。
+- 默认分支持续集成维护可供 tag 发布恢复的 pnpm、Gradle 与 Electron 缓存，发布任务不写入共享的 Gradle 或 Electron 缓存；缓存是可丢弃的性能优化，不得成为构建正确性的前提。
 - Windows 本地环境不验证 iOS。无签名 Simulator 构建不证明 Multicast Networking Entitlement 已获批，也不替代带正确 provisioning profile 的真机网络与权限联调。
 
 ## Out of Scope

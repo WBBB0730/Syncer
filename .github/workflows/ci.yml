@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Protocol, desktop, mobile, Android
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.1
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck shared protocol
+        run: pnpm --filter @syncer/protocol typecheck
+      - name: Test shared protocol
+        run: pnpm --filter @syncer/protocol test
+      - name: Smoke test protocol session
+        working-directory: packages/syncer-protocol
+        run: node scripts/smoke-session.mjs
+
+      - name: Lint desktop
+        run: pnpm --filter syncer-desktop lint
+      - name: Build desktop
+        run: pnpm --filter syncer-desktop build
+
+      - name: Lint mobile
+        run: pnpm --filter syncer-mobile lint
+      - name: Typecheck mobile
+        run: pnpm --filter syncer-mobile typecheck
+      - name: Test mobile
+        run: pnpm --filter syncer-mobile test
+
+      - name: Generate Android project
+        env:
+          SYNCER_RELEASE_CHANNEL: beta
+        run: pnpm --filter syncer-mobile exec expo prebuild --clean --platform android --no-install
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.0.0
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Test native storage and build Android app
+        working-directory: syncer-mobile/android
+        env:
+          NODE_ENV: production
+        run: |
+          ./gradlew \
+            :syncer-storage:testDebugUnitTest \
+            :syncer-storage:lintDebug \
+            :syncer-storage:assembleRelease \
+            :app:assembleDebug \
+            --no-daemon \
+            --build-cache
+
+  windows:
+    name: Desktop, Windows package
+    runs-on: windows-2025
+    env:
+      electron_config_cache: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.1
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - id: electron-cache
+        name: Restore Electron caches
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ${{ env.electron_config_cache }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.yml') }}
+          restore-keys: |
+            electron-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install dependencies
+        run: pnpm --filter syncer-desktop... install --frozen-lockfile
+      - name: Build shared protocol
+        run: pnpm --filter @syncer/protocol build
+      - name: Test desktop
+        run: pnpm --filter syncer-desktop test
+      - name: Build unpacked Windows app
+        if: github.event_name == 'pull_request'
+        run: pnpm --filter syncer-desktop build:unpack
+      - name: Build Windows installer
+        if: github.event_name == 'push'
+        run: pnpm --filter syncer-desktop build:win
+
+      - name: Save Electron caches
+        if: github.ref == 'refs/heads/main' && steps.electron-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ${{ env.electron_config_cache }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+          key: ${{ steps.electron-cache.outputs.cache-primary-key }}
