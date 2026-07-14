@@ -15,6 +15,7 @@
         ref="inputNameRef"
         v-model:value="inputName"
         class="input-name"
+        :maxlength="255"
         @press-enter="saveName"
       />
       <a-button type="text" @click="cancelEditName">
@@ -44,12 +45,12 @@
     title="手动查找"
     cancel-text="取消"
     ok-text="查找"
-    @ok="search"
+    @ok="manualSearch"
   >
     <a-input
       v-model:value="inputIpAddress"
       placeholder="请输入目标设备的IP地址"
-      @press-enter="search"
+      @press-enter="manualSearch"
     />
   </a-modal>
 
@@ -65,7 +66,7 @@
           <div class="device-name">{{ device.name }}</div>
           <div class="device-address">{{ device.address }}</div>
         </div>
-        <a-button class="right" type="primary" ghost shape="round" @click="connect(device)">
+        <a-button class="right" type="primary" ghost shape="round" @click="requestSession(device)">
           连接
         </a-button>
       </div>
@@ -76,7 +77,7 @@
   <!-- 正在连接 -->
   <a-modal :open="store.connecting" centered :width="400" title="正在连接" :closable="false">
     <template #footer>
-      <a-button type="primary" ghost @click="store.cancel()">取消</a-button>
+      <a-button type="primary" ghost @click="cancelConnectionRequest">取消</a-button>
     </template>
     等待 {{ store.target ? store.target.name : '' }} 接受连接请求
     <a-spin class="text-loading" size="small" />
@@ -95,7 +96,8 @@ import {
 } from '@ant-design/icons-vue'
 import ReceiveHistory from '../components/ReceiveHistory.vue'
 import { useAppStore } from '../stores/app'
-import type { DeviceInfo } from '../../../preload/index.d'
+import type { AvailableDevice } from '../../../shared/contracts'
+import { performAction } from '../utils/action'
 
 const store = useAppStore()
 
@@ -121,26 +123,39 @@ function cancelEditName(): void {
 
 async function saveName(): Promise<void> {
   if (!inputName.value) return
-  await store.setName(inputName.value)
-  editingName.value = false
+  if (await performAction(() => store.setDeviceName(inputName.value), '保存设备名称失败')) {
+    editingName.value = false
+  }
 }
 
-async function search(): Promise<void> {
-  ipAddress.value = await window.api.getIpAddress()
-  const searchIpAddress =
-    /^(\d{1,3}\.){3}\d{1,3}$/.test(inputIpAddress.value) && inputIpAddress.value
-  inputtingIpAddress.value = false
+async function search(manualIp?: string): Promise<void> {
   searching.value = true
-  await store.search(searchIpAddress || undefined)
-  searching.value = false
+  try {
+    await performAction(async () => {
+      ipAddress.value = await window.api.getIpAddress()
+      await store.discoverDevices(manualIp)
+    }, '查找设备失败')
+  } finally {
+    searching.value = false
+  }
 }
 
-async function connect(device: DeviceInfo): Promise<void> {
-  await store.connect(device)
+function manualSearch(): void {
+  inputtingIpAddress.value = false
+  void search(inputIpAddress.value)
 }
 
-onMounted(() => {
-  void search()
+async function requestSession(device: AvailableDevice): Promise<void> {
+  await performAction(() => store.requestSession(device), '连接设备失败')
+}
+
+async function cancelConnectionRequest(): Promise<void> {
+  await performAction(() => store.cancelConnectionRequest(), '取消连接失败')
+}
+
+onMounted(async () => {
+  await store.whenReady()
+  await search()
 })
 </script>
 

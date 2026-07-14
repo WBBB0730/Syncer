@@ -54,11 +54,10 @@ import { FileTextOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { computed, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 import { message } from 'ant-design-vue'
+import type { ReceiveHistoryItem } from '../../../shared/contracts'
+import { performAction } from '../utils/action'
 
-interface HistoryItem {
-  name: string
-  path: string
-  time: number
+interface HistoryItem extends ReceiveHistoryItem {
   selected: boolean
 }
 
@@ -71,9 +70,11 @@ const list = computed(() => receiveHistory.slice(0, pageIndex.value * 20))
 async function show(): Promise<void> {
   visible.value = true
   pageIndex.value = 1
-  const temp = (await window.api.getReceiveHistory()) || []
-  receiveHistory.length = 0
-  receiveHistory.push(...temp.map((item) => ({ ...item, selected: false })))
+  await performAction(async () => {
+    const temp = await window.api.getReceiveHistory()
+    receiveHistory.length = 0
+    receiveHistory.push(...temp.map((item) => ({ ...item, selected: false })))
+  }, '读取接收历史失败')
 }
 
 const hasMore = computed(() => receiveHistory.length > pageIndex.value * 20)
@@ -111,13 +112,13 @@ function selectAll(): void {
 
 /** 删除选中的记录 */
 async function deleteSelectedItems(): Promise<void> {
-  const temp = receiveHistory.filter((item) => !item.selected)
-  receiveHistory.length = 0
-  receiveHistory.push(...temp)
-  await window.api.setReceiveHistory(
-    receiveHistory.map(({ name, path, time }) => ({ name, path, time }))
-  )
-  selecting.value = false
+  const selected = selectedList.value.map(({ name, path, time }) => ({ name, path, time }))
+  if (await performAction(() => window.api.removeReceiveHistory(selected), '删除接收历史失败')) {
+    const temp = receiveHistory.filter((item) => !item.selected)
+    receiveHistory.length = 0
+    receiveHistory.push(...temp)
+    selecting.value = false
+  }
 }
 
 /** 时间戳格式化 */
@@ -131,14 +132,16 @@ async function handleClickItem(item: HistoryItem): Promise<void> {
     item.selected = !item.selected
     return
   }
-  // 打开文件路径
-  const ok = await window.api.showItemInFolder(item.path, item.name)
-  if (!ok) message.error('文件不存在')
+  let exists = false
+  const succeeded = await performAction(async () => {
+    exists = await window.api.showReceivedFile(item)
+  }, '打开文件位置失败')
+  if (succeeded && !exists) message.error('文件不存在')
 }
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/theme.scss';
+@use '../styles/theme' as *;
 
 .receive-history__show-button {
   color: $secondary-text-color;

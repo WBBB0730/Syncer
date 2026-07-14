@@ -1,34 +1,3 @@
-# syncer-desktop
+# Syncer desktop
 
-An Electron application with Vue and TypeScript
-
-## Recommended IDE Setup
-
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
-
-## Project Setup
-
-### Install
-
-```bash
-$ npm install
-```
-
-### Development
-
-```bash
-$ npm run dev
-```
-
-### Build
-
-```bash
-# For windows
-$ npm run build:win
-
-# For macOS
-$ npm run build:mac
-
-# For Linux
-$ npm run build:linux
-```
+Syncer 的 Windows 10+ 桌面端，使用 Electron 43、electron-vite 与 Vue 3。开发需要 Node.js 22.18+（22.x）或 24.3+；完整的安装、开发、测试与打包命令以仓库根目录的 [README](../README.md) 为准。

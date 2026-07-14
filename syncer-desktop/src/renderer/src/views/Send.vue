@@ -5,8 +5,8 @@
     <ReceiveHistory />
   </div>
 
-  <div class="white-list">
-    <a-checkbox :checked="isInWhiteList" @change="setIsInWhiteList(!isInWhiteList)">
+  <div class="whitelist">
+    <a-checkbox :checked="isInWhitelist" @change="setIsInWhitelist(!isInWhitelist)">
       自动接受此设备的连接请求
     </a-checkbox>
   </div>
@@ -54,37 +54,39 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { PlusOutlined } from '@ant-design/icons-vue'
 import { message, Modal } from 'ant-design-vue'
-import type { UploadFile } from 'ant-design-vue'
+import type { UploadFile, UploadProps } from 'ant-design-vue'
 import ReceiveHistory from '../components/ReceiveHistory.vue'
-import { fileToBase64 } from '../utils/file'
 import { useAppStore } from '../stores/app'
+import { performAction } from '../utils/action'
 
 const store = useAppStore()
+let findDeviceModal: ReturnType<typeof Modal.info> | null = null
 
-const isInWhiteList = ref(false)
-getIsInWhiteList()
+const isInWhitelist = ref(false)
 
-async function getIsInWhiteList(): Promise<void> {
+async function getIsInWhitelist(): Promise<void> {
   if (!store.target) return
-  const whiteList = await window.api.getWhiteList()
-  isInWhiteList.value = whiteList[store.target.uuid] === true
+  const target = store.target
+  await performAction(async () => {
+    isInWhitelist.value = await window.api.isDeviceWhitelisted(target.uuid)
+  }, '读取白名单失败')
 }
 
-async function setIsInWhiteList(next: boolean): Promise<void> {
+async function setIsInWhitelist(next: boolean): Promise<void> {
   if (!store.target) return
-  const whiteList = await window.api.getWhiteList()
-  if (next) whiteList[store.target.uuid] = true
-  else delete whiteList[store.target.uuid]
-  await window.api.setWhiteList(whiteList)
-  await getIsInWhiteList()
+  const target = store.target
+  if (
+    await performAction(() => window.api.setDeviceWhitelisted(target.uuid, next), '更新白名单失败')
+  ) {
+    isInWhitelist.value = next
+  }
 }
 
 async function disconnect(): Promise<void> {
-  await window.api.sendTcp({ type: 'disconnect' })
-  await store.disconnect()
+  await performAction(() => store.endSession(), '断开连接失败')
 }
 
 const type = ref('text')
@@ -94,66 +96,84 @@ const sendingText = ref(false)
 async function sendText(): Promise<void> {
   if (!text.value) return
   sendingText.value = true
-  await window.api.sendTcp({
-    type: 'text',
-    content: text.value
-  })
-  sendingText.value = false
-  text.value = ''
-  message.success('发送成功')
+  try {
+    if (await performAction(() => window.api.sendText(text.value), '发送文本失败')) {
+      text.value = ''
+      message.success('发送成功')
+    }
+  } finally {
+    sendingText.value = false
+  }
 }
 
-const files = reactive<UploadFile[]>([])
+const files = ref<UploadFile[]>([])
 const sendingFile = ref(false)
-function handleSelectFile(file: UploadFile): boolean {
-  files.push(file)
-  console.log(file)
+type UploadSourceFile = Parameters<NonNullable<UploadProps['beforeUpload']>>[0]
+
+function handleSelectFile(file: UploadSourceFile): boolean {
+  files.value.push({
+    uid: file.uid,
+    name: file.name,
+    size: file.size,
+    type: file.type,
+    lastModified: file.lastModified,
+    lastModifiedDate: file.lastModifiedDate,
+    originFileObj: file
+  })
   return false
 }
 function handleRemoveFile(file: UploadFile): void {
-  files.splice(files.indexOf(file), 1)
+  const index = files.value.findIndex((item) => item.uid === file.uid)
+  if (index >= 0) files.value.splice(index, 1)
 }
 async function sendFile(): Promise<void> {
-  if (!files.length) return
+  if (!files.value.length) return
   sendingFile.value = true
-  const list: { name: string; data: string }[] = []
-  for (const file of files) {
-    const origin = file.originFileObj as File | undefined
-    if (!origin) continue
-    const data = (await fileToBase64(origin)).split(',')[1]
-    list.push({ name: file.name, data })
+  try {
+    const selectedFiles = files.value.flatMap((file) =>
+      file.originFileObj ? [file.originFileObj] : []
+    )
+    if (!selectedFiles.length) return
+    if (await performAction(() => window.api.sendFiles(selectedFiles), '发送文件失败')) {
+      files.value.length = 0
+      message.success('发送成功')
+    }
+  } finally {
+    sendingFile.value = false
   }
-  await window.api.sendTcp({
-    type: 'file',
-    content: list
-  })
-  sendingFile.value = false
-  files.length = 0
-  message.success('发送成功')
 }
 
 async function sendRing(): Promise<void> {
-  Modal.info({
+  if (!(await performAction(() => window.api.setFindDeviceActive(true), '启动查找设备失败'))) {
+    return
+  }
+  findDeviceModal?.destroy()
+  findDeviceModal = Modal.info({
     centered: true,
     icon: null,
     title: '正在查找',
     content: '设备正在响铃...',
     okText: '停止',
-    onOk: async () => {
-      await window.api.sendTcp({
-        type: 'ring',
-        content: false
-      })
+    onOk: (close) => {
+      void performAction(() => window.api.setFindDeviceActive(false), '停止查找设备失败').then(
+        (succeeded) => {
+          if (succeeded) {
+            findDeviceModal = null
+            close()
+          }
+        }
+      )
     }
-  })
-  await window.api.sendTcp({
-    type: 'ring',
-    content: true
   })
 }
 
 onMounted(() => {
-  void getIsInWhiteList()
+  void getIsInWhitelist()
+})
+
+onUnmounted(() => {
+  findDeviceModal?.destroy()
+  findDeviceModal = null
 })
 </script>
 

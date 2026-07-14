@@ -1,14 +1,21 @@
 import { resolve } from 'path'
-import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import { defineConfig } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    build: {
+      externalizeDeps: {
+        exclude: ['@syncer/protocol']
+      }
+    },
+    resolve: {
+      alias: {
+        '@syncer/protocol': resolve('../packages/syncer-protocol/src/index.ts')
+      }
+    }
   },
-  preload: {
-    plugins: [externalizeDepsPlugin()]
-  },
+  preload: {},
   renderer: {
     resolve: {
       alias: {

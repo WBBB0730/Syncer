@@ -1,19 +1,33 @@
 import { networkInterfaces } from 'os'
 
-/** 获取本机 IPv4 地址（优先 WLAN） */
-export function getIpAddress(): string {
-  const interfaces = networkInterfaces()
-  let preferred: string | undefined
-  const addressList: string[] = []
+export interface Ipv4Network {
+  address: string
+  netmask: string
+}
 
-  for (const name of Object.keys(interfaces)) {
-    for (const details of interfaces[name] ?? []) {
-      if (details.family === 'IPv4' && !details.internal) {
-        if (name.toUpperCase().includes('WLAN')) preferred = details.address
-        addressList.push(details.address)
-      }
+/** Prefer a non-internal IPv4 suitable for LAN Discovery. */
+export function getIpAddress(): string {
+  const networks = listLanIpv4Networks()
+  let preferred: string | undefined
+
+  for (const network of networks) {
+    const upper = network.name.toUpperCase()
+    if (upper.includes('WLAN') || upper.includes('WI-FI') || upper.includes('WIFI')) {
+      preferred = network.address
     }
   }
 
-  return preferred || addressList.join(' / ')
+  return preferred || networks[0]?.address || ''
+}
+
+export function listLanIpv4Networks(): Array<Ipv4Network & { name: string }> {
+  const interfaces = networkInterfaces()
+  const networks: Array<Ipv4Network & { name: string }> = []
+  for (const [name, list] of Object.entries(interfaces)) {
+    for (const details of list ?? []) {
+      if (String(details.family) !== 'IPv4' || details.internal) continue
+      networks.push({ name, address: details.address, netmask: details.netmask })
+    }
+  }
+  return networks
 }

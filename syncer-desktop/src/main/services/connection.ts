@@ -1,65 +1,99 @@
-import { BrowserWindow } from 'electron'
-import { PROTOCOL_PORT } from '../constants'
-import { appState, type DeviceInfo } from '../state'
-import { sendUdpData } from './udpService'
+import type { CommandKey, SelectedFile } from '../../shared/contracts'
+import { appState } from '../state'
+import { refreshPresenceAnnounce, searchDevices } from './discovery'
+import { emit } from './emit'
 import {
-  closeTcpServer,
-  closeTcpSocket,
-  connectTcpServer,
-  openTcpServer,
-  sendTcpData
-} from './tcpService'
+  acceptPendingConnection,
+  dialAndConnect,
+  isSessionUpgradeInProgress,
+  refusePendingConnection
+} from './presence'
+import { disconnectSession, sendCommand, sendFiles, sendText, setFindDeviceActive } from './session'
 
-function sendToRenderer(channel: string, payload?: unknown): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(channel, payload)
-  }
+let activeDialController: AbortController | null = null
+
+export function abortActiveConnectionAttempt(): void {
+  activeDialController?.abort()
+  activeDialController = null
 }
 
 function emitState(): void {
-  sendToRenderer('syncer:state-changed', appState.snapshot())
+  emit('syncer:state-changed', appState.snapshot())
 }
 
-export async function connectToDevice(device: DeviceInfo): Promise<void> {
-  await openTcpServer()
-  appState.setStatus('connecting')
-  appState.setTarget(device)
-  sendUdpData({ type: 'connect' }, device.port, device.address)
-  emitState()
+export async function discoverDevices(manualIp?: string): Promise<void> {
+  await searchDevices(manualIp)
 }
 
-export async function cancelConnect(): Promise<void> {
-  await closeTcpServer()
-  appState.setStatus('available')
-  appState.setTarget(null)
-  emitState()
-}
-
-export async function acceptConnection(device: DeviceInfo): Promise<void> {
-  await connectTcpServer(device)
-  await sendTcpData({
-    type: 'accept',
-    uuid: appState.uuid
-  })
-  appState.setTarget(device)
-  appState.setStatus('connected')
-  emitState()
-}
-
-export async function disconnect(): Promise<void> {
-  closeTcpSocket()
-  appState.setTarget(null)
-  appState.setStatus('available')
-  emitState()
-}
-
-export async function searchDevices(manualIp?: string): Promise<void> {
-  appState.clearAvailableDeviceMap()
-  emitState()
-  for (let i = 0; i < 5; i++) {
-    sendUdpData({ type: 'search' }, PROTOCOL_PORT, '255.255.255.255')
-    if (manualIp) sendUdpData({ type: 'search' }, PROTOCOL_PORT, manualIp)
-    await new Promise((r) => setTimeout(r, 500))
+export async function requestSession(deviceUuid: string): Promise<void> {
+  if (appState.status !== 'available' || isSessionUpgradeInProgress()) {
+    throw new Error('A Session is already active')
   }
+  if (appState.connectionRequest) throw new Error('A Connection Request is awaiting a decision')
+  const device = appState.availableDeviceMap.get(deviceUuid)
+  if (!device) throw new Error('Available Device is no longer present')
+
+  activeDialController?.abort()
+  const controller = new AbortController()
+  activeDialController = controller
+  appState.transitionSession('start-connection')
+  appState.setTarget(device)
+  refreshPresenceAnnounce()
   emitState()
+
+  let result: Awaited<ReturnType<typeof dialAndConnect>>
+  try {
+    result = await dialAndConnect(device, { signal: controller.signal })
+  } catch (error) {
+    if (activeDialController === controller) {
+      activeDialController = null
+      appState.setTarget(null)
+      appState.transitionSession('settle-available')
+      refreshPresenceAnnounce()
+      emitState()
+    }
+    throw error
+  }
+  if (activeDialController !== controller) return
+  activeDialController = null
+  if (result === 'accepted') return
+
+  appState.setTarget(null)
+  appState.transitionSession('settle-available')
+  refreshPresenceAnnounce()
+  emitState()
+}
+
+export async function cancelConnectionRequest(): Promise<void> {
+  abortActiveConnectionAttempt()
+  if (appState.status !== 'connecting') return
+  await disconnectSession(false)
+}
+
+export async function acceptConnectionRequest(requestId: string): Promise<void> {
+  await acceptPendingConnection(requestId)
+}
+
+export async function refuseConnectionRequest(requestId: string): Promise<void> {
+  await refusePendingConnection(requestId)
+}
+
+export async function endSession(): Promise<void> {
+  await disconnectSession(true)
+}
+
+export async function sendTextTransfer(content: string): Promise<void> {
+  await sendText(content)
+}
+
+export async function sendFileTransfer(files: readonly SelectedFile[]): Promise<void> {
+  await sendFiles(files)
+}
+
+export async function sendCommandMessage(command: CommandKey): Promise<void> {
+  await sendCommand(command)
+}
+
+export async function setFindDevice(active: boolean): Promise<void> {
+  await setFindDeviceActive(active)
 }

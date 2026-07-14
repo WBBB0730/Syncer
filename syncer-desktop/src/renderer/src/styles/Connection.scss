@@ -1,4 +1,4 @@
-@import "theme";
+@use './theme' as *;
 
 .page {
   padding: 16px;
@@ -64,7 +64,6 @@
     margin-left: auto;
   }
 }
-
 
 .tip {
   margin-top: 32px;

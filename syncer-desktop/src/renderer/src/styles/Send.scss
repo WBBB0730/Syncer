@@ -1,4 +1,4 @@
-@import "./theme";
+@use './theme' as *;
 
 .target {
   display: flex;
@@ -9,7 +9,7 @@
   margin-left: auto;
 }
 
-.white-list {
+.whitelist {
   margin-bottom: 16px;
 }
 

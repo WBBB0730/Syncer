@@ -1,5 +1,5 @@
-@import './colors';
-@import './shadows';
+@use './colors' as *;
+@use './shadows' as *;
 
 $brand-color: $orange-6;
 $hover-color: $orange-5;

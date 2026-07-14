@@ -1,44 +1,54 @@
 import { app } from 'electron'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import { existsSync } from 'fs'
 import { join } from 'path'
+import type { LegacyLocalStorageValues } from '../../shared/contracts'
+import { AtomicJsonStorage } from './atomicStorage'
+import {
+  migrateLegacyLocalStorage,
+  migrateLegacyStorage,
+  storageSchema,
+  type StorageData,
+  type StorageValues
+} from './storageSchema'
 
 export const STORAGE_KEYS = {
   NAME: 'name',
   UUID: 'uuid',
-  WHITE_LIST: 'whiteList',
+  WHITELIST: 'whitelist',
   RECEIVE_HISTORY: 'receiveHistory',
   FILE_PATH: 'filePath'
 } as const
 
-type StorageData = Record<string, unknown>
+type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS]
 
-function getStorePath(): string {
-  const dir = app.getPath('userData')
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
-  return join(dir, 'syncer-store.json')
+let storage: AtomicJsonStorage<StorageData> | null = null
+
+export function initializeStorageFile(
+  path: string,
+  legacyStorage: LegacyLocalStorageValues
+): AtomicJsonStorage<StorageData> {
+  const file = new AtomicJsonStorage(path, storageSchema, migrateLegacyStorage)
+  if (existsSync(path)) file.read()
+  else file.write(migrateLegacyLocalStorage(legacyStorage))
+  return file
 }
 
-function readAll(): StorageData {
-  const path = getStorePath()
-  if (!existsSync(path)) return {}
-  try {
-    return JSON.parse(readFileSync(path, 'utf8')) as StorageData
-  } catch {
-    return {}
-  }
+export function initializeStorage(legacyStorage: LegacyLocalStorageValues): void {
+  if (storage) throw new Error('Storage is already initialized')
+  storage = initializeStorageFile(join(app.getPath('userData'), 'syncer-store.json'), legacyStorage)
 }
 
-function writeAll(data: StorageData): void {
-  writeFileSync(getStorePath(), JSON.stringify(data, null, 2), 'utf8')
+function getStorageFile(): AtomicJsonStorage<StorageData> {
+  if (!storage) throw new Error('Storage is not initialized')
+  return storage
 }
 
-export function setStorage(key: string, value: unknown): void {
-  const data = readAll()
+export function setStorage<K extends StorageKey>(key: K, value: StorageValues[K]): void {
+  const data = getStorageFile().read()
   data[key] = value
-  writeAll(data)
+  getStorageFile().write(data)
 }
 
-export function getStorage<T = unknown>(key: string): T | null {
-  const data = readAll()
-  return (data[key] as T) ?? null
+export function getStorage<K extends StorageKey>(key: K): StorageValues[K] | null {
+  return getStorageFile().read()[key] ?? null
 }

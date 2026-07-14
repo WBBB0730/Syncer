@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "rootDir": ".",
+    "outDir": ".test-dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": [
+    "src/main/services/receivedFileStorage.ts",
+    "src/main/services/tcpIdentity.ts",
+    "src/main/security.ts",
+    "src/main/utils/atomicStorage.ts",
+    "src/main/utils/storage.ts",
+    "src/main/utils/storageSchema.ts",
+    "tests/**/*.ts"
+  ]
+}
