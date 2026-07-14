@@ -1,6 +1,6 @@
 # 0003. LAN UDP discovery + TCP session protocol
 
-- Status: accepted
+- Status: superseded by ADR-0004 and ADR-0005
 
 ## Context
 
@@ -19,6 +19,5 @@ Keep the existing wire protocol:
 
 ## Consequences
 
-- Cross-version compatibility depends on not changing frame format or type names casually.
-- Encryption, large-file streaming, and heartbeat are future ADRs; they must version or negotiate without breaking this baseline.
-- Same port for UDP and TCP is surprising but intentional and must remain documented.
+- Historical baseline only. Presence / dial-in Session: ADR-0004. Wire vNext: ADR-0005.
+- Cross-version compatibility with this baseline is intentionally abandoned by ADR-0005.

@@ -1,0 +1,30 @@
+{
+  "name": "@syncer/protocol",
+  "version": "2.0.0",
+  "private": true,
+  "engines": {
+    "node": "^22.18.0 || >=24.3.0"
+  },
+  "type": "module",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/esm/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/esm/index.d.ts",
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "npm run build && node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.esm.json"
+  },
+  "dependencies": {
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  }
+}

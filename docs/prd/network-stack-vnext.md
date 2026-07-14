@@ -1,0 +1,73 @@
+# network-stack-vnext
+
+**局域网网络栈重构（Presence + Session vNext）**
+
+## Problem Statement
+
+同一 Wi-Fi 下经常 Discovery 不到 Device；TCP 用 `^` 分帧与 Base64 塞文件既脆又难传大文件。根因是「点一下才广播 + 发起方临时开 server」的旧模型，而不是缺几个补丁。
+
+## Solution
+
+保留 Syncer 的长连接 Session 产品形态，按「常驻可拨号 + 主动查询发现」重构：
+
+- **Presence**：`available` 时常驻 TCP 门 + 常驻 UDP discovery 监听（可应答查询）；可选低频主动宣告仅作加速
+- **Discovery**：主路径为查找方携带本次 `queryId` 的 UDP 查询、对端回显同一 `queryId` 并单播回复 TCP 地址；仅匹配当前查询的应答进入结果；辅以低频宣告与网段 TCP 探测；对用户仍是一次「查找」
+- **信任边界**：UDP 只产生 Available Device 候选；身份与是否接受连接在 TCP / Session 握手中确认
+- **Connection Request**：发起方拨号敲对方已在听的门；接受或 Whitelist 后升级为 **Session**（禁止收到发现后再临时开 TCP server）
+- **Session**：文本 / File Transfer / Command / Find Device 同通道；应用层心跳按未应答调度次数判定，不把休眠或调度停顿直接当作连续超时；主动断开等待有明确上限
+- **File Transfer**：发送端分块读取，接收端写入应用私有临时文件，校验完成后再交给平台保存，不在内存或 IPC 中保留整文件 Base64
+- **一对一**：`connected` 关闭 Presence
+- **自动恢复**：Presence 与 Discovery 作为一个可重启运行时统一启停；TCP/UDP 任一监听异常都会触发串行回滚与可取消的指数重试，重试间隔有上限
+- **线协议 breaking**：长度前缀帧；本代明文；不与旧版互通
+
+## User Stories
+
+- 作为用户，我点「查找」后，同一局域网内其他 Syncer 设备应较快出现在 Available Device 列表（不依赖等待对方下一次周期广播）。
+- 作为用户，我点连接后仍先经 Connection Request（或 Whitelist），再进入可收发的 Session。
+- 作为用户，Session 意外断开时我会得到明确提示，并立即回到可被发现和重新连接的状态。
+- 作为用户，我在 Session 内仍能发送文本、文件、Command、Find Device，且文件不会因整包 Base64 或整文件内存副本而占用成倍内存。
+- 作为用户，我已与一台设备建立 Session 时，其他设备的 Discovery 不应再找到我。
+
+## Implementation Decisions
+
+- 领域与握手模型见 ADR-0004；线协议见 ADR-0005；术语见 `CONTEXT.md`。
+- Discovery 时序：A 以新 UUID `queryId` 主动 UDP 查询 → B 在非 announce `hello` 中回显该 `queryId` 并单播回复 → A 仅接受当前查询的回复并拨号 B 的常驻 TCP；B 的低频 announce 是不携带 `queryId` 的独立变体。
+- 手动 IP 不经过 UDP 轮询或网段扫描，直接 TCP 探测该地址；常规网段探测使用系统报告的真实 IPv4 子网掩码、子网定向广播与共享的有限探测预算。
+- 保留长连接 Session；不采用 Socket.IO 作主通道；不采用 LocalSend 纯 HTTP 传完即散模型。
+- 自定义 UDP discovery 为默认；mDNS/DNS-SD 不作为必选主路径（可作后续桌面增强）。
+- File Transfer 留在 Session 内，采用长度前缀下的二进制分块与磁盘暂存，不另开 HTTP 旁路；资源与失败清理规则见 ADR-0006。
+- 移动端用 Expo 官方 `expo-document-picker` 选择发送文件并复制到应用缓存，再由 `expo-file-system` 按块读取；系统选择器只负责授权与复制，原始文件名和 MIME 元数据随选择结果保留。
+- Android 接受文件后通过 MediaStore 写入公共 Downloads，保持现有一键保存交互，见 ADR-0007。
+- 桌面仍在主进程承载网络；移动端继续使用原生 UDP/TCP 能力（具体库可随实现调整）。
+- 两端共享 `@syncer/protocol` 的编解码、线协议类型与纯状态转换，平台层只保留 socket、存储和 UI 适配。
+- 两端通过共享 Session 生命周期 reducer 驱动 `available` / `connecting` / `connected`，并复用统一的握手、Connection Request 超时和 Discovery 限流参数。
+- 两端通过共享 `RestartableRuntime` 串行协调 Presence 与 Discovery 的启动、停止、失败回滚和重启。异常监听关闭后持续重试，退避间隔从有限初值指数增长并封顶；应用显式停止时以 `AbortSignal` 取消恢复。
+- Session 心跳累计逻辑上未收到 `pong` 的调度间隔，避免系统休眠或 JavaScript 调度停顿恢复后立即误判；主动 `disconnect` 的发送等待有界，超时后必须释放 transport。
+- Presence 接受的连接升级为 Session 后转移 socket 所有权，监听运行时重启不得关闭已建立的 Session。
+- 旧 ADR-0003 握手与线协议废弃；迁移前对照固定为重构开始前 `origin/main` 的 commit `6355611`，不要求互通。
+
+## Testing Decisions
+
+- 冒烟：双端同代构建下 Discovery → Connection Request → Session → 文本往返。
+- 回归：Whitelist 自动接受；拒绝连接；主动断开；Find Device；Command（桌面）。
+- 稳定性：杀进程、关闭 Wi-Fi 或心跳超时造成 Session 中断后，应立即回到 `available` 并明确提示连接中断；覆盖调度停顿不会伪造超时，以及主动断开在 transport 不可写时仍能有界完成。
+- Discovery：覆盖「查询-单播应答」主路径及 `queryId` 关联，拒绝上一次或无关查询的延迟回复；覆盖「组播弱、需网段探测」类环境；验证关闭周期 announce 时主动查询仍能找到设备。
+- 桌面启动与恢复：验证 TCP/UDP 任一绑定失败会完整回滚且不展示可用主界面；异常关闭触发可取消的有界指数退避并最终恢复；监听重启不破坏已转移给 Session 的 socket；手动 IP 会直接 TCP 探测；渲染器重载可恢复且不会重复展示待处理文件。
+- 文件：覆盖多分块与多文件，按声明大小验证接收字节、跨批次暂存预算、背压、断线/拒绝清理与部分发布重试，并以接收端最终字节内容而非“已发送”日志作为断言。
+- Android：在支持下限 Android 10 / API 29 上覆盖 MediaStore `IS_PENDING` 一键保存、UTF-8 重名、精确字节数、部分成功、owned pending row 清理与历史 reopening；不保留 Android 9 文件系统路径。
+- CI 先安装、typecheck、测试并构建共享协议，再验证桌面 lint/typecheck/build，并在 Windows 运行桌面存储适配器与网络测试；Linux 从 CNG 配置生成最低 API 29 的 Android 工程后运行移动端协调器与 Metro bundle、本地存储模块测试、Lint、Release AAR、完整 debug 应用构建及 Android 10 模拟器上的 MediaStore 集成测试；macOS 26 + Xcode 26.4 运行 iOS 存储核心 Swift 测试并从独立 CNG 输出完成最低 iOS 16.4 的无签名 Simulator 构建；真机网络与 iOS multicast entitlement 仍由带正确签名配置的设备联调补充。
+
+## Out of Scope
+
+- TLS / 端到端加密（下一代 Protocol Version）。
+- 多 Session / 会议室式同时连接多台设备。
+- 与重构前线协议的兼容层。
+- 将 mDNS/SSDP 设为唯一发现机制。
+- 剪贴板自动同步、开机自启、设置页大改、品牌视觉重做。
+- Socket.IO / WebRTC 作为主通道。
+- File Transfer 并行传输、断点续传与跨 Session 恢复。
+
+## Further Notes
+
+- 具体组播地址、端口号、心跳间隔、announce 周期、扫描并发与扫描预算属实现参数，应可配置或集中常量，但不得违背 ADR-0004 语义（查询-应答为主，announce 为辅）。
+- README「待完成」中的心跳等项由本 PRD 吸收为 Session 存活能力；加密仍列未来工作。
