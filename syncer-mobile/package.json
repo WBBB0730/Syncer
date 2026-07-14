@@ -60,7 +60,7 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
-    "lint": "expo lint -- --max-warnings 0",
+    "lint": "pnpm --filter @syncer/protocol build && expo lint --no-cache -- --max-warnings 0",
     "typecheck": "tsc --noEmit",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/*.test.mjs"
   },
