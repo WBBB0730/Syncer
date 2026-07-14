@@ -13,6 +13,7 @@ import { computed, h, onMounted, onUnmounted, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { DesktopOutlined, MobileOutlined, QuestionOutlined } from '@ant-design/icons-vue'
 import type {
+  CommandFailedPayload,
   ConnectionAttemptFailedPayload,
   LegacyLocalStorageValues,
   ReceivedFileBatch,
@@ -29,7 +30,29 @@ const unsubscribers: Array<() => void> = []
 const openReceiptIds = new Set<string>()
 const fileModals = new Map<string, ReturnType<typeof Modal.confirm>>()
 let connectionRequestModal: ReturnType<typeof Modal.confirm> | null = null
+let commandPermissionModal: ReturnType<typeof Modal.info> | null = null
 let shownConnectionRequestId: string | null = null
+
+function handleCommandFailed(payload: CommandFailedPayload): void {
+  console.error('Failed to execute Command', payload)
+  if (payload.reason === 'accessibility-permission-required') {
+    if (commandPermissionModal) return
+    commandPermissionModal = Modal.info({
+      centered: true,
+      icon: null,
+      title: '需要辅助功能权限',
+      content: '请在系统设置的“隐私与安全性 → 辅助功能”中允许 Syncer，然后重新发送指令。',
+      okText: '确定',
+      afterClose: () => {
+        commandPermissionModal = null
+      }
+    })
+    return
+  }
+  message.error(
+    payload.reason === 'unsupported-platform' ? '当前系统不支持媒体指令' : '执行媒体指令失败'
+  )
+}
 
 function connectionFailureContent({ name, reason }: ConnectionAttemptFailedPayload): string {
   switch (reason) {
@@ -286,6 +309,8 @@ onMounted(async () => {
     })
   )
 
+  unsubscribers.push(window.api.onCommandFailed(handleCommandFailed))
+
   unsubscribers.push(
     window.api.onConnectionLost(() => {
       message.error('连接中断')
@@ -309,6 +334,7 @@ onMounted(async () => {
 
 onUnmounted(() => {
   connectionRequestModal?.destroy()
+  commandPermissionModal?.destroy()
   fileModals.forEach((modal) => modal.destroy())
   fileModals.clear()
   openReceiptIds.clear()

@@ -6,7 +6,9 @@ import {
   MAX_FILE_BYTES,
   MAX_FILES_PER_BATCH,
   MAX_TEXT_BYTES,
+  PROTOCOL_VERSION,
   collisionFileName,
+  commandKeySchema,
   deviceNameSchema,
   deviceUuidSchema,
   deviceWhitelistSchema,
@@ -26,9 +28,10 @@ const CALLER_UUID = '00000000-0000-4000-8000-000000000001'
 const TARGET_UUID = '00000000-0000-4000-8000-000000000002'
 
 test('handshake schemas require protocol version and target identity', () => {
+  assert.equal(PROTOCOL_VERSION, 3)
   const connect = {
     type: 'connect',
-    v: 2,
+    v: PROTOCOL_VERSION,
     uuid: CALLER_UUID,
     targetUuid: TARGET_UUID,
     name: 'Caller',
@@ -36,14 +39,14 @@ test('handshake schemas require protocol version and target identity', () => {
   }
 
   assert.deepEqual(parseTcpJsonMessage(JSON.stringify(connect)), connect)
-  assert.equal(parseTcpJsonMessage(JSON.stringify({ ...connect, v: 1 })), null)
+  assert.equal(parseTcpJsonMessage(JSON.stringify({ ...connect, v: 2 })), null)
   assert.equal(parseTcpJsonMessage(JSON.stringify({ ...connect, v: undefined })), null)
   assert.equal(parseTcpJsonMessage(JSON.stringify({ ...connect, targetUuid: undefined })), null)
   assert.equal(tcpHandshakeMessageSchema.safeParse({ type: 'ping' }).success, false)
   assert.equal(
     tcpSessionMessageSchema.safeParse({
       type: 'hello',
-      v: 2,
+      v: PROTOCOL_VERSION,
       uuid: CALLER_UUID,
       name: 'Peer',
       device: 'mobile'
@@ -77,7 +80,7 @@ test('Device Name and discovery port reject unsafe candidate metadata', () => {
   }
 
   const hello = {
-    v: 2,
+    v: PROTOCOL_VERSION,
     type: 'hello',
     queryId: TARGET_UUID,
     uuid: CALLER_UUID,
@@ -94,7 +97,7 @@ test('Device Name and discovery port reject unsafe candidate metadata', () => {
   assert.equal(udpHelloSchema.safeParse({ ...hello, queryId: undefined }).success, false)
   assert.equal(
     udpHelloSchema.safeParse({
-      v: 2,
+      v: PROTOCOL_VERSION,
       type: 'hello',
       uuid: CALLER_UUID,
       name: 'Caller',
@@ -106,7 +109,7 @@ test('Device Name and discovery port reject unsafe candidate metadata', () => {
   )
   assert.equal(
     udpHelloSchema.safeParse({
-      v: 2,
+      v: PROTOCOL_VERSION,
       type: 'hello',
       queryId: TARGET_UUID,
       uuid: CALLER_UUID,
@@ -119,7 +122,7 @@ test('Device Name and discovery port reject unsafe candidate metadata', () => {
   )
 
   const discover = {
-    v: 2,
+    v: PROTOCOL_VERSION,
     type: 'discover',
     queryId: TARGET_UUID,
     uuid: CALLER_UUID,
@@ -132,7 +135,7 @@ test('Device Name and discovery port reject unsafe candidate metadata', () => {
 
 test('Discovery accepts announcements and only the active query response', () => {
   const response = (queryId) => ({
-    v: 2,
+    v: PROTOCOL_VERSION,
     type: 'hello',
     queryId,
     uuid: CALLER_UUID,
@@ -142,7 +145,7 @@ test('Discovery accepts announcements and only the active query response', () =>
     announce: false
   })
   const announcement = {
-    v: 2,
+    v: PROTOCOL_VERSION,
     type: 'hello',
     uuid: CALLER_UUID,
     name: 'Caller',
@@ -236,6 +239,26 @@ test('file offers enforce per-file, file-count, and aggregate byte limits', () =
 })
 
 test('application messages enforce text and Command limits before encoding', () => {
+  const commandKeys = [
+    'up',
+    'down',
+    'left',
+    'right',
+    'space',
+    'escape',
+    'f5',
+    'audio_mute',
+    'audio_vol_down',
+    'audio_vol_up',
+    'audio_play_pause',
+    'audio_prev',
+    'audio_next'
+  ]
+
+  assert.deepEqual(commandKeySchema.options, commandKeys)
+  for (const content of commandKeys) {
+    assert.equal(tcpSessionMessageSchema.safeParse({ type: 'command', content }).success, true)
+  }
   assert.equal(
     tcpSessionMessageSchema.safeParse({
       type: 'text',
@@ -252,6 +275,22 @@ test('application messages enforce text and Command limits before encoding', () 
   )
   assert.equal(
     tcpSessionMessageSchema.safeParse({ type: 'command', content: 'unknown' }).success,
+    false
+  )
+})
+
+test('Find Device messages require a UUID request id', () => {
+  const start = { type: 'ring', content: true, requestId: CALLER_UUID }
+  const stop = { ...start, content: false }
+
+  assert.deepEqual(parseTcpJsonMessage(JSON.stringify(start)), start)
+  assert.deepEqual(parseTcpJsonMessage(JSON.stringify(stop)), stop)
+  assert.equal(
+    tcpSessionMessageSchema.safeParse({ type: 'ring', content: true }).success,
+    false
+  )
+  assert.equal(
+    tcpSessionMessageSchema.safeParse({ ...start, requestId: 'not-a-uuid' }).success,
     false
   )
 })

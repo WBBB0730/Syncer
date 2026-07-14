@@ -1,4 +1,4 @@
-import { AntDesign as Icon } from '@expo/vector-icons';
+import { AntDesign as Icon, Feather as DeviceIcon } from '@expo/vector-icons';
 import { Button, Overlay } from '@rneui/themed';
 import type { AvailableDevice } from '@syncer/protocol';
 import { observer } from 'mobx-react';
@@ -73,7 +73,7 @@ const MyDeviceName = observer(() => {
           <Button type="clear" icon={<Icon name="edit" size={20} color={theme.brandColor} />} onPress={editName} />
           <Button
             type="clear"
-            icon={<Icon name="file-text" size={20} color={theme.secondaryTextColor} />}
+            icon={<Icon name="history" size={20} color={theme.secondaryTextColor} />}
             containerStyle={{ marginLeft: 'auto' }}
             onPress={showReceiveHistory}
           />
@@ -212,10 +212,10 @@ const AvailableDevices = observer(() => {
     <ScrollView style={styles.availableDevices}>
       {Array.from(store.availableDeviceMap.values()).map((device: AvailableDevice) => (
         <View key={device.uuid} style={styles.availableDevice}>
-          <Icon
-            name={device.device === 'desktop' ? 'desktop' : device.device === 'mobile' ? 'mobile' : 'question'}
+          <DeviceIcon
+            name={device.device === 'desktop' ? 'monitor' : device.device === 'mobile' ? 'smartphone' : 'help-circle'}
             size={32}
-            color={theme.mainTextColor}
+            color={theme.secondaryTextColor}
           />
           <View style={styles.availableDeviceInfo}>
             <Text numberOfLines={1} ellipsizeMode="tail" style={styles.availableDeviceName}>

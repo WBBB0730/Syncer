@@ -31,6 +31,8 @@
 - 作为用户，Connection Request 超时、目标不可达、对端忙或协议不匹配时，我会看到明确原因，而不是永久等待。
 - 作为用户，Session 意外断开时我会得到明确提示，并立即回到可被发现和重新连接的状态。
 - 作为用户，我在 Session 内仍能发送文本、文件、Command、Find Device，且文件不会因整包 Base64 或整文件内存副本而占用成倍内存。
+- 作为移动端用户，我可以通过紧凑的媒体控制区向 Windows 或 macOS 桌面端发送播放、切歌、静音与音量 Command。
+- 作为被查找的移动端用户，我可以从应用弹窗停止响铃；Android 可以从系统通知直接停止，iOS 26 及以上优先使用可直接停止并可打开 App 的系统 AlarmKit，其他 iOS 情况从普通通知进入 App。停止后，发起端的“正在查找”弹窗同步关闭。
 - 作为用户，我已与一台设备建立 Session 时，其他设备的 Discovery 不应再找到我。
 
 ## Implementation Decisions
@@ -48,6 +50,10 @@
 - 桌面仍在主进程承载网络；移动端继续使用原生 UDP/TCP 能力（具体库可随实现调整）。
 - 两端共享 `@syncer/protocol` 的编解码、线协议类型与纯状态转换，平台层只保留 socket、存储和 UI 适配。
 - 两端通过共享 Session 生命周期 reducer 驱动 `available` / `connecting` / `connected`，并复用统一的握手、Connection Request 超时和 Discovery 限流参数。
+- Protocol Version 3 增加跨平台媒体 Command。桌面端使用穷尽映射执行受支持按键；macOS 权限或原生注入失败只反馈错误，不得结束 Session。
+- Find Device 的 start、stop 与接收端停止回执携带同一 UUID `requestId`。接收端弹窗与通知复用同一停止动作；发起端只在回执匹配当前请求时关闭对应弹窗，延迟到达的旧 stop 不影响新一轮查找，也不对远端停止消息回显。
+- Android 在开始播放铃声前设置并校验媒体音量，停止时恢复原值；通知展示可在后台直接执行本地停止及回传状态的 action，点击正文进入 App。
+- iOS 26 及以上在前台预先请求 AlarmKit 授权，收到 Find Device 后优先调度一次性系统 alarm，并提供系统停止与明确的打开 App 操作；调度成功时不得同时启动旧播放器、振动或普通通知。仅在系统不支持、未授权、后台无法首次授权，或调度失败且已确认清理对应 alarm 后，才回退现有播放器、振动与普通通知；回退方案不修改系统输出音量，也不展示无法可靠后台执行的停止按钮。AlarmKit 只负责接管已经收到的 Find Device，不能唤醒已被 iOS 挂起或终止、尚未收到局域网请求的 App。
 - 两端通过共享 `RestartableRuntime` 串行协调 Presence 与 Discovery 的启动、停止、失败回滚和重启。异常监听关闭后持续重试，退避间隔从有限初值指数增长并封顶；应用显式停止时以 `AbortSignal` 取消恢复。
 - Session 心跳累计逻辑上未收到 `pong` 的调度间隔，避免系统休眠或 JavaScript 调度停顿恢复后立即误判；主动 `disconnect` 的发送等待有界，超时后必须释放 transport。
 - Presence 接受的连接升级为 Session 后转移 socket 所有权，监听运行时重启不得关闭已建立的 Session。
@@ -57,12 +63,14 @@
 
 - 冒烟：双端同代构建下 Discovery → Connection Request → Session → 文本往返。
 - 回归：Whitelist 自动接受；拒绝连接；主动断开；Find Device；Command（桌面）。
+- Command：覆盖全部协议键的穷尽映射、Windows/macOS 媒体键、macOS 辅助功能拒绝，以及注入失败后 Session 仍可继续处理消息。
+- Find Device：覆盖弹窗停止、Android 通知后台 action 停止回传、ack 失败后的通知重试、通知进入 App、匹配回执关闭发起端弹窗、过期回执不影响新请求、重复启动不会重建已关闭弹窗、启动失败回传停止、旧通知不影响新一轮响铃、Android 播放前的媒体音量校验及停止后的音量恢复。iOS 需分别在 26.0 与 26.1 以上真机覆盖 AlarmKit 授权、前后台调度、系统停止、打开 App、停止回执和孤立 alarm 清理，并在 iOS 16.4 及 AlarmKit 未授权场景验证只启用旧方案；AlarmKit 调度异常且清理结果不明确时不得启动旧方案造成双响。
 - 稳定性：杀进程、关闭 Wi-Fi 或心跳超时造成 Session 中断后，应立即回到 `available` 并明确提示连接中断；覆盖调度停顿不会伪造超时，以及主动断开在 transport 不可写时仍能有界完成。
 - Discovery：覆盖「查询-单播应答」主路径及 `queryId` 关联，拒绝上一次或无关查询的延迟回复；覆盖「组播弱、需网段探测」类环境；验证关闭周期 announce 时主动查询仍能找到设备。
 - 桌面启动与恢复：验证 TCP/UDP 任一绑定失败会完整回滚且不展示可用主界面；异常关闭触发可取消的有界指数退避并最终恢复；监听重启不破坏已转移给 Session 的 socket；手动 IP 会直接 TCP 探测；渲染器重载可恢复且不会重复展示待处理文件。
 - 多网卡：用包含以太网、Windows 热点和虚拟网卡的拓扑验证逐接口组播、定向广播、未覆盖子网探测及同一 Device UUID 的 Device Endpoint 合并；验证一个网段已有结果不会抑制其他网段。
 - 连接失败：验证首个 Device Endpoint 不可达时会回退到下一路径，TCP 身份不匹配不会建立 Session，Connection Request 一旦发送便不再换路；超时、不可达、忙碌、拒绝和协议错误都结束等待并给出对应反馈。
-- 单实例：Windows 打包产物连续启动两次时，第二个进程应退出并把控制权交给仍在运行的主实例，不能产生第二套 Presence/Discovery 监听与托盘。
+- 单实例：Windows 或 macOS 打包产物连续启动两次时，第二个进程应退出并把控制权交给仍在运行的主实例，不能产生第二套 Presence/Discovery 监听与托盘。
 - 文件：覆盖多分块与多文件，按声明大小验证接收字节、跨批次暂存预算、背压、断线/拒绝清理与部分发布重试，并以接收端最终字节内容而非“已发送”日志作为断言。
 - Android：在支持下限 Android 10 / API 29 上覆盖 MediaStore `IS_PENDING` 一键保存、UTF-8 重名、精确字节数、部分成功、owned pending row 清理与历史 reopening；不保留 Android 9 文件系统路径。
 - 自动发布流程不承担本节测试；这些场景按涉及平台在本地验证。
@@ -70,6 +78,7 @@
 ## Out of Scope
 
 - TLS / 端到端加密（下一代 Protocol Version）。
+- 通过 APNs 唤醒已挂起或终止的 iOS App，以及需要 Apple 特批 entitlement 的 Critical Alerts。
 - 多 Session / 会议室式同时连接多台设备。
 - 与重构前线协议的兼容层。
 - 将 mDNS/SSDP 设为唯一发现机制。

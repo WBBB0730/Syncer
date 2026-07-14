@@ -161,11 +161,17 @@ function registerPermissionHandlers(): void {
 
 function createTray(): void {
   const trayIcon = nativeImage.createFromPath(join(__dirname, '../../resources/icon.png'))
-  tray = new Tray(trayIcon.isEmpty() ? icon : trayIcon)
+  const resolvedTrayIcon = trayIcon.isEmpty() ? nativeImage.createFromPath(icon) : trayIcon
+  if (process.platform === 'darwin') resolvedTrayIcon.setTemplateImage(true)
+  tray = new Tray(resolvedTrayIcon.isEmpty() ? icon : resolvedTrayIcon)
   tray.setToolTip('Syncer')
-  tray.setTitle('Syncer')
   tray.setContextMenu(
     Menu.buildFromTemplate([
+      {
+        label: '打开 Syncer',
+        click: showPrimaryWindow
+      },
+      { type: 'separator' },
       {
         label: '重新加载',
         click: () => mainWindow?.reload()
@@ -182,7 +188,24 @@ function createTray(): void {
   tray.on('click', showPrimaryWindow)
 }
 
+function configureApplicationMenu(): void {
+  if (process.platform === 'darwin') {
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([
+        { role: 'appMenu' },
+        { role: 'fileMenu' },
+        { role: 'editMenu' },
+        { role: 'viewMenu' },
+        { role: 'windowMenu' }
+      ])
+    )
+  } else if (!is.dev) {
+    Menu.setApplicationMenu(null)
+  }
+}
+
 function registerApplicationLifecycle(): void {
+  app.on('activate', showPrimaryWindow)
   app.on('before-quit', (event) => {
     quitting = true
     applicationReady = false
@@ -244,7 +267,7 @@ export async function startApplication(): Promise<() => void> {
   if (quitting) return showPrimaryWindow
 
   createTray()
-  if (!is.dev) Menu.setApplicationMenu(null)
+  configureApplicationMenu()
   applicationReady = true
   showPrimaryWindow()
   return showPrimaryWindow

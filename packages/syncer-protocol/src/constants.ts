@@ -1,5 +1,5 @@
 /** Wire protocol generation — breaking vs pre-refactor builds. */
-export const PROTOCOL_VERSION = 2
+export const PROTOCOL_VERSION = 3
 
 /** UDP discovery (query / reply / optional announce). */
 export const UDP_PORT = 5742

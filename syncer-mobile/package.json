@@ -14,6 +14,7 @@
         "exclude": [
           "react-native-tcp-socket",
           "react-native-udp",
+          "syncer-alarmkit",
           "syncer-storage"
         ]
       }
@@ -37,6 +38,7 @@
     "expo-notifications": "~57.0.3",
     "expo-splash-screen": "~57.0.2",
     "expo-system-ui": "~57.0.0",
+    "expo-task-manager": "~57.0.2",
     "mobx": "^6.16.1",
     "mobx-react": "^9.2.2",
     "moment": "^2.30.1",

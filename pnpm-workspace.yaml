@@ -3,6 +3,15 @@ packages:
   - 'syncer-desktop'
   - 'syncer-mobile'
 
+supportedArchitectures:
+  os:
+    - win32
+    - darwin
+    - current
+  cpu:
+    - x64
+    - arm64
+
 strictDepBuilds: true
 
 overrides:

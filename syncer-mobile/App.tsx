@@ -1,22 +1,44 @@
 import { createTheme, ThemeProvider } from '@rneui/themed';
 import { observer } from 'mobx-react';
 import { useEffect } from 'react';
-import { StatusBar, StyleSheet, View } from 'react-native';
+import { AppState, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import Loading from './src/components/Loading';
 import Modal from './src/components/Modal';
 import Connection from './src/screens/Connection';
 import Send from './src/screens/Send';
+import {
+  prepareFindDeviceAlarmKit,
+  registerFindDeviceAlarmStopHandler,
+} from './src/service/alarmKit';
 import { startNetworkStack } from './src/service/bootstrap';
+import { stopIncomingFindDevice } from './src/service/session';
 import store from './src/store';
 import theme from './src/styles/theme';
-import { configureNotifications } from './src/utils/notify';
+import {
+  configureNotifications,
+  registerFindDeviceNotificationStopHandler,
+} from './src/utils/notify';
+
+registerFindDeviceNotificationStopHandler(stopIncomingFindDevice);
+registerFindDeviceAlarmStopHandler(stopIncomingFindDevice);
 
 export default function App() {
   useEffect(() => {
+    void prepareFindDeviceAlarmKit().catch((error) =>
+      console.warn('AlarmKit setup failed', error),
+    );
     void configureNotifications().catch((error) => console.warn('Notification setup failed', error));
     void startNetworkStack().catch((error) => console.error('Network startup failed', error));
+
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void prepareFindDeviceAlarmKit().catch((error) =>
+        console.warn('AlarmKit setup failed', error),
+      );
+    });
+    return () => appStateSubscription.remove();
   }, []);
 
   return (

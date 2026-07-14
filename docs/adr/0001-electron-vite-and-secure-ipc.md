@@ -8,7 +8,7 @@ Legacy desktop used Vue CLI + `vue-cli-plugin-electron-builder`, Electron 13, `n
 
 ## Decision
 
-Rebuild the Windows 10+ desktop client on Electron 43 and official `electron-vite` (Vue + TypeScript) with:
+Rebuild the Windows 10+ and macOS 14+ desktop client on Electron 43 and official `electron-vite` (Vue + TypeScript) with:
 
 - `contextIsolation: true`, `nodeIntegration: false`
 - Serve packaged renderer assets from a standard, secure `app` protocol restricted to the renderer output directory. Keep the historical `app://./` origin so the one-time migration can read the deployed renderer `localStorage` without granting filesystem-wide `file://` access.
@@ -20,14 +20,14 @@ Rebuild the Windows 10+ desktop client on Electron 43 and official `electron-vit
 - The default Electron session denies permissions except notifications and sanitized clipboard writes requested by the trusted main renderer. Permission checks use the trusted renderer origin and main-frame identity rather than granting capabilities to arbitrary WebContents.
 - Harden the packaged runtime with Electron Fuses: disable `RunAsNode`, Node options, CLI inspection, and extra `file://` privileges; require ASAR integrity and load the application only from ASAR.
 - Pinia instead of Vuex; Ant Design Vue retained and upgraded
-- Use the typed public `keyTap` API from `@nut-tree-fork/libnut-win32` instead of the unmaintained `robotjs` or a higher-level image-processing stack for Command key taps
+- Use the typed public API from `@nut-tree-fork/nut-js` instead of the unmaintained `robotjs`; platform support, key mapping, and macOS Accessibility behavior are defined by ADR-0009
 
 ## Consequences
 
 - Renderer cannot touch Node APIs directly; all Session I/O goes through IPC.
 - Existing Device identity, Whitelist, Receive History, and save directory survive the process-boundary migration; startup network events cannot race ahead of renderer listeners.
 - Native modules rebuild via electron-builder / `@electron/rebuild`.
-- Windows versions older than Windows 10 are not supported; maintaining an old Electron line solely for those systems is intentionally rejected.
+- Windows versions older than Windows 10 and macOS versions older than macOS 14 are not supported; maintaining separate native automation binaries solely for those systems is intentionally rejected.
 - Desktop and mobile must implement the same current Protocol Version; Presence, Session, and wire compatibility are governed by ADR-0004 and ADR-0005 rather than this process-boundary decision.
 
 ## References

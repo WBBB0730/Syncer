@@ -8,9 +8,13 @@ export class LatestStateCoordinator<T> {
 
   set(value: T, reconcile: (desired: () => T) => Promise<void>): Promise<void> {
     this.desired = value;
-    const operation = this.transition.then(() => reconcile(() => this.desired));
-    this.transition = operation.catch(() => undefined);
-    return operation;
+    return this.runExclusive(() => reconcile(() => this.desired));
+  }
+
+  runExclusive(operation: () => Promise<void>): Promise<void> {
+    const queuedOperation = this.transition.then(operation);
+    this.transition = queuedOperation.catch(() => undefined);
+    return queuedOperation;
   }
 
   replaceDesired(value: T): void {

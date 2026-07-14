@@ -119,3 +119,71 @@ jobs:
             ${{ env.electron_config_cache }}
             ${{ env.ELECTRON_BUILDER_CACHE }}
           key: ${{ steps.electron-cache.outputs.cache-primary-key }}
+
+  macos:
+    name: Desktop, macOS packages
+    runs-on: macos-15
+    env:
+      electron_config_cache: ${{ github.workspace }}/.cache/electron
+      ELECTRON_BUILDER_CACHE: ${{ github.workspace }}/.cache/electron-builder
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.1
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - id: electron-cache
+        name: Restore Electron caches
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ${{ env.electron_config_cache }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.yml') }}
+          restore-keys: |
+            electron-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install dependencies
+        run: pnpm --filter syncer-desktop... install --frozen-lockfile
+      - name: Build shared protocol
+        run: pnpm --filter @syncer/protocol build
+      - name: Test desktop
+        run: pnpm --filter syncer-desktop test
+      - name: Build macOS packages with ad-hoc signed apps
+        run: pnpm --filter syncer-desktop build:mac
+      - name: Verify architecture-specific DMGs
+        shell: bash
+        run: |
+          test "$(find syncer-desktop/dist -maxdepth 1 -type f -name '*-x64.dmg' | wc -l | tr -d ' ')" = '1'
+          test "$(find syncer-desktop/dist -maxdepth 1 -type f -name '*-arm64.dmg' | wc -l | tr -d ' ')" = '1'
+          codesign --verify --deep --strict syncer-desktop/dist/mac/Syncer.app
+          codesign --verify --deep --strict syncer-desktop/dist/mac-arm64/Syncer.app
+          x64_entitlements="$(mktemp)"
+          arm64_entitlements="$(mktemp)"
+          codesign -d --entitlements "$x64_entitlements" syncer-desktop/dist/mac/Syncer.app
+          codesign -d --entitlements "$arm64_entitlements" syncer-desktop/dist/mac-arm64/Syncer.app
+          if grep -q 'disable-library-validation' "$x64_entitlements" "$arm64_entitlements"; then
+            echo 'Unexpected disable-library-validation entitlement' >&2
+            exit 1
+          fi
+          rm -f "$x64_entitlements" "$arm64_entitlements"
+          x64_modules='syncer-desktop/dist/mac/Syncer.app/Contents/Resources/app.asar.unpacked/node_modules'
+          arm64_modules='syncer-desktop/dist/mac-arm64/Syncer.app/Contents/Resources/app.asar.unpacked/node_modules'
+          lipo "$x64_modules/@koromix/koffi-darwin-x64/darwin_x64/koffi.node" -verify_arch x86_64
+          lipo "$x64_modules/@nut-tree-fork/libnut-darwin/build/Release/libnut.node" -verify_arch x86_64
+          lipo "$x64_modules/@nut-tree-fork/node-mac-permissions/build/Release/permissions.node" -verify_arch x86_64
+          lipo "$arm64_modules/@koromix/koffi-darwin-arm64/darwin_arm64/koffi.node" -verify_arch arm64
+          lipo "$arm64_modules/@nut-tree-fork/libnut-darwin/build/Release/libnut.node" -verify_arch arm64
+          lipo "$arm64_modules/@nut-tree-fork/node-mac-permissions/build/Release/permissions.node" -verify_arch arm64
+
+      - name: Save Electron caches
+        if: github.ref == 'refs/heads/main' && steps.electron-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: |
+            ${{ env.electron_config_cache }}
+            ${{ env.ELECTRON_BUILDER_CACHE }}
+          key: ${{ steps.electron-cache.outputs.cache-primary-key }}

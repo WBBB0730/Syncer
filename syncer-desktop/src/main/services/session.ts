@@ -16,17 +16,22 @@ import {
   type StagingReservation,
   type TcpApplicationMessage
 } from '@syncer/protocol'
-import type {
-  ReceiveHistoryItem,
-  ReceivedFileBatch,
-  ReceivedFileSummary,
-  SaveFilesResult,
-  SelectedFile
+import {
+  COMMAND_FAILED_CHANNEL,
+  FIND_DEVICE_STOPPED_CHANNEL,
+  type CommandFailedPayload,
+  type ReceiveHistoryItem,
+  type ReceivedFileBatch,
+  type ReceivedFileSummary,
+  type SaveFilesResult,
+  type SelectedFile
 } from '../../shared/contracts'
 import { appState } from '../state'
+import { executeKeyboardCommand, type CommandExecutionResult } from '../utils/keyboard'
 import { getStorage, setStorage, STORAGE_KEYS } from '../utils/storage'
 import { refreshPresenceAnnounce } from './discovery'
 import { emit } from './emit'
+import { FindDeviceCoordinator } from './findDevice'
 import { ReceivedFileStorage, type PendingFilePublication } from './receivedFileStorage'
 
 interface StagedFile extends FileMetadata {
@@ -70,11 +75,12 @@ interface SessionOwnership {
   transfer: TransferState
   runtime: SessionRuntime
   intentionalClose: boolean
+  findDevice: FindDeviceCoordinator
 }
 
 export interface SessionRuntime {
   emit(channel: string, payload?: unknown): void
-  executeCommand(command: CommandKey): void | Promise<void>
+  executeCommand(command: CommandKey): CommandExecutionResult | Promise<CommandExecutionResult>
 }
 
 let activeSession: SessionOwnership | null = null
@@ -87,17 +93,9 @@ const activeReceiptOperations = new Set<Promise<unknown>>()
 let receivedFileStorage: ReceivedFileStorage | null = null
 let shuttingDown = false
 
-async function executeCommand(command: CommandKey): Promise<void> {
-  if (process.platform !== 'win32') {
-    throw new Error('Command execution is only supported on Windows')
-  }
-  const { executeWindowsCommand } = await import('../utils/windowsKeyboard.js')
-  executeWindowsCommand(command)
-}
-
 const productionSessionRuntime: SessionRuntime = {
   emit,
-  executeCommand
+  executeCommand: executeKeyboardCommand
 }
 
 function emitState(runtime: SessionRuntime): void {
@@ -234,17 +232,36 @@ function handleChannelClosed(session: SessionOwnership): void {
 }
 
 async function handleApplicationMessage(
-  runtime: SessionRuntime,
+  session: SessionOwnership,
   message: TcpApplicationMessage
 ): Promise<void> {
+  const { runtime } = session
   switch (message.type) {
     case 'text':
       runtime.emit('syncer:text-received', { content: message.content })
       return
     case 'command':
-      await runtime.executeCommand(message.content)
+      try {
+        const result = await runtime.executeCommand(message.content)
+        if (!result.ok) {
+          if (result.cause) console.error('Failed to execute Command', result.cause)
+          runtime.emit(COMMAND_FAILED_CHANNEL, {
+            command: message.content,
+            reason: result.reason,
+            message: result.message
+          } satisfies CommandFailedPayload)
+        }
+      } catch (error) {
+        console.error('Failed to execute Command', error)
+        runtime.emit(COMMAND_FAILED_CHANNEL, {
+          command: message.content,
+          reason: 'injection-failed',
+          message: '桌面端执行 Command 失败'
+        } satisfies CommandFailedPayload)
+      }
       return
     case 'ring':
+      if (session.findDevice.handle(message)) runtime.emit(FIND_DEVICE_STOPPED_CHANNEL)
       return
   }
 }
@@ -354,12 +371,13 @@ export function attachSessionSocket(
     channel: null,
     transfer,
     runtime,
-    intentionalClose: false
+    intentionalClose: false,
+    findDevice: new FindDeviceCoordinator()
   }
   try {
     nextSession.channel = new SessionChannel(socket, {
       onMessage: (message) =>
-        runOwnedOperation(transfer, () => handleApplicationMessage(runtime, message)),
+        runOwnedOperation(transfer, () => handleApplicationMessage(nextSession, message)),
       onFileOffer: (files) => runOwnedOperation(transfer, () => beginFileBatch(transfer, files)),
       onFileBegin: (file) => runOwnedOperation(transfer, () => beginFile(transfer, file)),
       onFileChunk: (file, chunk) =>
@@ -415,7 +433,21 @@ export async function sendCommand(command: CommandKey): Promise<void> {
 }
 
 export async function setFindDeviceActive(active: boolean): Promise<void> {
-  await activeChannel().send({ type: 'ring', content: active })
+  const session = activeSession
+  const activeSessionChannel = activeChannel()
+  if (!session || session.channel !== activeSessionChannel) throw new Error('No active Session')
+
+  await session.findDevice.setActive(active, async (message) => {
+    if (
+      activeSession !== session ||
+      session.channel !== activeSessionChannel ||
+      activeSessionChannel.closed ||
+      appState.status !== 'connected'
+    ) {
+      throw new Error('No active Session')
+    }
+    await activeSessionChannel.send(message)
+  })
 }
 
 async function* readFileChunks(path: string): AsyncIterable<Uint8Array> {

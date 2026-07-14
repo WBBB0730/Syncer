@@ -15,6 +15,7 @@
       },
       "infoPlist": {
         "CFBundleDisplayName": "syncer",
+        "NSAlarmKitUsageDescription": "用于在你通过已连接设备查找本机时发出系统响铃。",
         "NSLocalNetworkUsageDescription": "Syncer 使用本地网络查找并连接同一 Wi-Fi 下的设备。",
         "UISupportedInterfaceOrientations": [
           "UIInterfaceOrientationPortrait",
@@ -60,6 +61,7 @@
           "recordAudioAndroid": false
         }
       ],
+      "./plugins/with-syncer-alarmkit-intents.js",
       "./plugins/with-ios-legacy-launch-screen.js",
       "./plugins/with-android-release-signing.js",
       [

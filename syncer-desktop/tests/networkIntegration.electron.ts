@@ -284,11 +284,15 @@ async function runIntegration(): Promise<void> {
     const serverAttached = deferred<void>()
     const serverText = deferred<string>()
     const peerText = deferred<string>()
+    const staleFindDeviceBarrier = deferred<void>()
     const commandReceived = deferred<CommandKey>()
+    const commandAfterFailure = deferred<CommandKey>()
     const fileReceived = deferred<ReceivedFileBatch>()
     const connectionLost = deferred<void>()
     const peerClosed = deferred<void>()
-    const peerRings: boolean[] = []
+    const peerRings: Array<{ content: boolean; requestId: string }> = []
+    const commandFailures: unknown[] = []
+    let findDeviceStoppedCount = 0
     let connectionLostCount = 0
     let attachCount = 0
 
@@ -297,16 +301,31 @@ async function runIntegration(): Promise<void> {
         if (channel === 'syncer:text-received') {
           const text = payload as { content?: unknown }
           assert.equal(typeof text.content, 'string')
-          serverText.resolve(text.content as string)
+          if (text.content === 'after-stale-find-device-stop') staleFindDeviceBarrier.resolve()
+          else serverText.resolve(text.content as string)
         } else if (channel === 'syncer:file-received') {
           fileReceived.resolve(payload as ReceivedFileBatch)
         } else if (channel === 'syncer:connection-lost') {
           connectionLostCount += 1
           connectionLost.resolve()
+        } else if (channel === 'syncer:command-failed') {
+          commandFailures.push(payload)
+        } else if (channel === 'syncer:find-device-stopped') {
+          findDeviceStoppedCount += 1
         }
       },
       executeCommand(command) {
-        commandReceived.resolve(command)
+        if (command === 'audio_play_pause') {
+          return {
+            ok: false,
+            reason: 'injection-failed',
+            message: 'controlled failure'
+          }
+        }
+        if (command === 'audio_prev') throw new Error('unexpected injection failure')
+        if (command === 'audio_next') commandAfterFailure.resolve(command)
+        else commandReceived.resolve(command)
+        return { ok: true }
       }
     }
 
@@ -433,7 +452,7 @@ async function runIntegration(): Promise<void> {
           if (message.type === 'text') {
             peerText.resolve(message.content)
           } else if (message.type === 'ring') {
-            peerRings.push(message.content)
+            peerRings.push({ content: message.content, requestId: message.requestId })
           } else {
             sessionErrors.push(new Error(`Unexpected ${message.type} from desktop`))
           }
@@ -472,10 +491,55 @@ async function runIntegration(): Promise<void> {
     await peerChannel.send({ type: 'command', content: 'f5' })
     assert.equal(await withTimeout(commandReceived.promise, 'Desktop Command'), 'f5')
 
+    await peerChannel.send({ type: 'command', content: 'audio_play_pause' })
+    await waitFor(() => commandFailures.length === 1, 'controlled Command failure')
+    assert.deepEqual(commandFailures[0], {
+      command: 'audio_play_pause',
+      reason: 'injection-failed',
+      message: 'controlled failure'
+    })
+    assert.equal(trustedConnection.rawSocket.destroyed, false)
+
+    await peerChannel.send({ type: 'command', content: 'audio_prev' })
+    await waitFor(() => commandFailures.length === 2, 'unexpected Command failure')
+    assert.deepEqual(commandFailures[1], {
+      command: 'audio_prev',
+      reason: 'injection-failed',
+      message: '桌面端执行 Command 失败'
+    })
+    assert.equal(trustedConnection.rawSocket.destroyed, false)
+
+    await peerChannel.send({ type: 'command', content: 'audio_next' })
+    assert.equal(
+      await withTimeout(commandAfterFailure.promise, 'Command after failure'),
+      'audio_next'
+    )
+
     await sessionService.setFindDeviceActive(true)
     await sessionService.setFindDeviceActive(false)
     await waitFor(() => peerRings.length === 2, 'Find Device messages')
-    assert.deepEqual(peerRings, [true, false])
+    assert.deepEqual(
+      peerRings.map(({ content }) => content),
+      [true, false]
+    )
+    assert.equal(peerRings[0].requestId, peerRings[1].requestId)
+    assert.equal(findDeviceStoppedCount, 0)
+
+    await sessionService.setFindDeviceActive(true)
+    await waitFor(() => peerRings.length === 3, 'second Find Device message')
+    const currentRequestId = peerRings[2].requestId
+    assert.notEqual(currentRequestId, peerRings[0].requestId)
+    await peerChannel.send({
+      type: 'ring',
+      content: false,
+      requestId: peerRings[0].requestId
+    })
+    await peerChannel.send({ type: 'text', content: 'after-stale-find-device-stop' })
+    await withTimeout(staleFindDeviceBarrier.promise, 'Stale Find Device stop barrier')
+    assert.equal(findDeviceStoppedCount, 0)
+    await peerChannel.send({ type: 'ring', content: false, requestId: currentRequestId })
+    await waitFor(() => findDeviceStoppedCount === 1, 'remote Find Device stop')
+    assert.equal(trustedConnection.rawSocket.destroyed, false)
 
     const fileContent = Buffer.from('production-session-file')
     await peerChannel.sendFileBatch([

@@ -59,6 +59,34 @@ test('LatestStateCoordinator can roll back desired state inside reconciliation',
   assert.equal(coordinator.value, false)
 })
 
+test('LatestStateCoordinator cleanup does not wait for a later requested start', async () => {
+  const coordinator = new LatestStateCoordinator('request-a')
+  const order = []
+  let releaseStart
+  let startFinished = false
+  const startBlocked = new Promise((resolve) => {
+    releaseStart = resolve
+  })
+
+  coordinator.replaceDesired(null)
+  const cleanup = coordinator.runExclusive(async () => {
+    order.push('cleanup-a')
+  })
+  const start = coordinator.set('request-b', async (desired) => {
+    order.push(`start-${desired()}`)
+    await startBlocked
+    startFinished = true
+  })
+
+  await cleanup
+  assert.equal(startFinished, false)
+  assert.equal(order[0], 'cleanup-a')
+
+  releaseStart()
+  await start
+  assert.deepEqual(order, ['cleanup-a', 'start-request-b'])
+})
+
 test('SerialTaskQueue preserves order and continues after a rejected task', async () => {
   const queue = new SerialTaskQueue()
   const order = []

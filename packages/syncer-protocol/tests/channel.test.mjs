@@ -5,6 +5,7 @@ import test from 'node:test'
 import {
   FrameReader,
   FramedSocket,
+  PROTOCOL_VERSION,
   SessionChannel,
   StagingBudget,
   encodeBinaryFrame,
@@ -103,14 +104,14 @@ test('FramedSocket transfers ownership without adding a second data reader', asy
 
   transport.receive(
     concatenate(
-      encodeJsonFrame({ type: 'accept', v: 2, uuid: PEER_UUID }),
+      encodeJsonFrame({ type: 'accept', v: PROTOCOL_VERSION, uuid: PEER_UUID }),
       encodeJsonFrame({ type: 'text', content: 'once' })
     )
   )
 
   await waitFor(() => sessionMessages.length === 1, 'Session message')
   assert.equal(transport.listenerCount('data'), 1)
-  assert.deepEqual(handshakeMessages, [{ type: 'accept', v: 2, uuid: PEER_UUID }])
+  assert.deepEqual(handshakeMessages, [{ type: 'accept', v: PROTOCOL_VERSION, uuid: PEER_UUID }])
   assert.deepEqual(sessionMessages, [{ type: 'text', content: 'once' }])
 
   session.destroy()
@@ -271,7 +272,7 @@ test('SessionChannel rejects invalid message phases and file metadata or byte co
       frames: [
         encodeJsonFrame({
           type: 'hello',
-          v: 2,
+          v: PROTOCOL_VERSION,
           uuid: PEER_UUID,
           name: 'Peer',
           device: 'desktop'

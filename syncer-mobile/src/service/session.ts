@@ -10,11 +10,16 @@ import {
   type StagingReservation,
   type TcpApplicationMessage,
 } from '@syncer/protocol';
-import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
+import {
+  createAudioPlayer,
+  setAudioModeAsync,
+  setIsAudioActiveAsync,
+  type AudioPlayer,
+} from 'expo-audio';
 import * as Clipboard from 'expo-clipboard';
 import { Directory, File, FileMode, Paths, type FileHandle } from 'expo-file-system';
 import React from 'react';
-import { Text, Vibration, View } from 'react-native';
+import { Platform, Text, Vibration, View } from 'react-native';
 import uuid from 'react-native-uuid';
 import { VolumeManager } from 'react-native-volume-manager';
 
@@ -28,13 +33,27 @@ import {
 import { createPublishedReceiveHistory } from '../repositories/receiveHistoryModel';
 import store from '../store';
 import { FeedbackDuration, showFeedback } from '../utils/feedback';
-import { notify } from '../utils/notify';
+import {
+  dismissFindDeviceNotification,
+  notify,
+  showFindDeviceNotification,
+} from '../utils/notify';
 import {
   ExclusiveOwnership,
   LatestStateCoordinator,
   RestorableValueSnapshot,
   SerialTaskQueue,
 } from './coordinators';
+import {
+  dismissFindDeviceAlarmKit,
+  prepareFindDeviceAlarmKitForStart,
+  startFindDeviceAlarmKit,
+} from './alarmKit';
+import {
+  setVerifiedVolume,
+  startPreferredFindDeviceFeedback,
+  type FindDeviceFeedbackBackend,
+} from './findDevice';
 import { PublicationLedger } from './publication';
 import { publishRemainingFiles } from './sequentialPublication';
 
@@ -59,9 +78,28 @@ type ReceivingBatch = {
   downloadsPath: string;
 };
 type CompletedBatch = ReceivingBatch;
+type IncomingRingRequest = Readonly<{
+  requestId: string;
+  sourceChannel: SessionChannel;
+  sessionGeneration: number;
+}>;
+type PendingIncomingRingStop = {
+  request: IncomingRingRequest;
+  phase: 'cleanup-pending' | 'ack-pending';
+  inFlight: Promise<void> | null;
+};
+type OutgoingRingRequest = Readonly<{
+  requestId: string;
+  sourceChannel: SessionChannel;
+  sessionGeneration: number;
+}>;
+type ActiveRingFeedback = Readonly<{
+  requestId: string;
+  backend: FindDeviceFeedbackBackend;
+}>;
 
 const stagingBudget = new StagingBudget();
-const ringState = new LatestStateCoordinator(false);
+const ringState = new LatestStateCoordinator<IncomingRingRequest | null>(null);
 const volumeSnapshot = new RestorableValueSnapshot<number>();
 const saveQueue = new SerialTaskQueue();
 const completedBatches: CompletedBatch[] = [];
@@ -76,9 +114,15 @@ let localDisconnect = false;
 let remoteDisconnect = false;
 let displayedBatch: { batch: CompletedBatch; token: ModalToken } | null = null;
 let player: AudioPlayer | null = null;
-let ringActive = false;
+let audioSessionActive = false;
+let activeIncomingRing: IncomingRingRequest | null = null;
+let activeRingFeedback: ActiveRingFeedback | null = null;
 let ringModalToken: ModalToken | null = null;
+let ringRecoveryRequestId: string | null = null;
 let outgoingRingModalToken: ModalToken | null = null;
+let outgoingRingRequest: OutgoingRingRequest | null = null;
+const pendingIncomingRingStops = new Map<string, PendingIncomingRingStop>();
+const ringNotificationIdentifiers = new Map<string, string>();
 
 Modal.subscribeAvailability(showNextCompletedBatch);
 
@@ -90,20 +134,24 @@ export async function initializeSessionStorage(): Promise<void> {
   incoming.create({ intermediates: true });
 }
 
-function setIncomingRingActive(active: boolean): Promise<void> {
-  return ringState.set(active, reconcileRingState);
+function setIncomingRingRequest(request: IncomingRingRequest | null): Promise<void> {
+  return ringState.set(request, reconcileRingState);
 }
 
-function showIncomingRingModal(recovery = false): void {
+function stopCurrentIncomingRing(request: IncomingRingRequest): Promise<void> {
+  if (ringState.value?.requestId === request.requestId) {
+    ringState.replaceDesired(null);
+  }
+  return ringState.runExclusive(() => stopRingResources(request.requestId));
+}
+
+function showIncomingRingModal(request: IncomingRingRequest): void {
+  ringRecoveryRequestId = null;
   ringModalToken = Modal.show({
     key: 'incoming-ring',
     title: '查找设备',
     priority: 'urgent',
-    content: React.createElement(
-      Text,
-      null,
-      recovery ? '设备音量恢复失败，点击重试' : '你的设备正在被查找，点击停止响铃',
-    ),
+    content: React.createElement(Text, null, '你的设备正在被查找，点击停止响铃'),
     footer: React.createElement(
       View,
       { style: modalStyles.button },
@@ -111,71 +159,269 @@ function showIncomingRingModal(recovery = false): void {
         ModalButton,
         {
           onPress: () => {
-            void setIncomingRingActive(false).catch((error) => {
+            void stopIncomingFindDevice(request.requestId).catch((error) => {
               console.error('Failed to restore Find Device resources', error);
-              showFeedback('音量恢复失败', FeedbackDuration.LONG);
+              showFeedback('停止响铃失败', FeedbackDuration.LONG);
             });
           },
         },
-        recovery ? '重试' : '停止',
+        '停止',
       ),
     ),
   });
 }
 
-async function reconcileRingState(desired: () => boolean): Promise<void> {
-  if (desired()) await startRingResources();
-  if (!desired()) await stopRingResources();
+function showIncomingRingRecoveryModal(requestId: string | null): void {
+  ringRecoveryRequestId = requestId;
+  ringModalToken = Modal.show({
+    key: 'incoming-ring',
+    title: '查找设备',
+    priority: 'urgent',
+    content: React.createElement(Text, null, '设备状态恢复失败，点击重试'),
+    footer: React.createElement(
+      View,
+      { style: modalStyles.button },
+      React.createElement(
+        ModalButton,
+        {
+          onPress: () => {
+            const pending = requestId
+              ? pendingIncomingRingStops.get(requestId)
+              : pendingIncomingRingStops.values().next().value;
+            const retry = pending
+              ? stopIncomingFindDevice(pending.request.requestId)
+              : setIncomingRingRequest(null);
+            void retry.catch((error) => {
+              console.error('Failed to retry Find Device resource restoration', error);
+              showFeedback('设备状态恢复失败', FeedbackDuration.LONG);
+            });
+          },
+        },
+        '重试',
+      ),
+    ),
+  });
 }
 
-async function startRingResources(): Promise<void> {
-  if (ringActive) return;
-  ringActive = true;
-  try {
-    Vibration.vibrate([0, 1000, 1000], true);
-    await volumeSnapshot.capture(async () => (await VolumeManager.getVolume()).volume);
-    if (!ringState.value) return stopRingResources();
-    await VolumeManager.setVolume(1);
-    if (!ringState.value) return stopRingResources();
-    await setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-    });
-    if (!ringState.value) return stopRingResources();
+async function reconcileRingState(desired: () => IncomingRingRequest | null): Promise<void> {
+  const request = desired();
+  if (!request) {
+    await stopRingResources();
+    return;
+  }
+  if (
+    activeIncomingRing?.requestId === request.requestId &&
+    activeRingFeedback?.requestId === request.requestId
+  ) {
+    return;
+  }
+  if (hasRingResources()) await stopRingResources();
+  if (desired()?.requestId === request.requestId) await startRingResources(request);
+}
 
-    if (!player) player = createAudioPlayer(require('../assets/ring.mp3'));
-    player.loop = true;
-    player.volume = 1;
-    await player.seekTo(0);
-    if (!ringState.value) return stopRingResources();
-    player.play();
-    showIncomingRingModal();
-  } catch (error) {
-    ringState.replaceDesired(false);
-    try {
-      await stopRingResources();
-    } catch (cleanupError) {
-      throw new AggregateError(
-        [error, cleanupError],
-        'Find Device failed and its resources could not be restored',
-      );
+async function startRingResources(request: IncomingRingRequest): Promise<void> {
+  activeIncomingRing = request;
+  try {
+    if (Platform.OS === 'ios') {
+      activeRingFeedback = { requestId: request.requestId, backend: 'alarmkit' };
+      const result = await startPreferredFindDeviceFeedback({
+        prepareAlarmKit: prepareFindDeviceAlarmKitForStart,
+        startAlarmKit: () => startFindDeviceAlarmKit(request.requestId),
+        dismissAlarmKit: () => dismissFindDeviceAlarmKit(request.requestId),
+        startLegacy: async () => {
+          activeRingFeedback = { requestId: request.requestId, backend: 'legacy' };
+          await startLegacyRingResources(request);
+        },
+      });
+      if (result.alarmKitError) {
+        console.warn('AlarmKit failed; using legacy Find Device feedback', result.alarmKitError);
+      }
+    } else {
+      activeRingFeedback = { requestId: request.requestId, backend: 'legacy' };
+      await startLegacyRingResources(request);
     }
-    throw error;
+
+    if (!isDesiredRing(request)) return stopRingResources(request.requestId);
+    showIncomingRingModal(request);
+  } catch (error) {
+    const failedCurrentRequest = isDesiredRing(request);
+    if (failedCurrentRequest) {
+      ringState.replaceDesired(null);
+      pendingIncomingRingStops.set(request.requestId, {
+        request,
+        phase: 'cleanup-pending',
+        inFlight: null,
+      });
+    }
+    const errors: unknown[] = [error];
+    let cleanupSucceeded = false;
+    try {
+      await stopRingResources(request.requestId);
+      cleanupSucceeded = true;
+    } catch (cleanupError) {
+      errors.push(cleanupError);
+    }
+    if (failedCurrentRequest && cleanupSucceeded) {
+      try {
+        const pending = pendingIncomingRingStops.get(request.requestId);
+        if (pending) pending.phase = 'ack-pending';
+        await acknowledgeIncomingFindDeviceStopped(request);
+        await completeIncomingFindDeviceStop(request);
+      } catch (acknowledgementError) {
+        await ensureFindDeviceNotification(request.requestId);
+        showIncomingRingRecoveryModal(request.requestId);
+        errors.push(acknowledgementError);
+      }
+    } else if (failedCurrentRequest) {
+      await ensureFindDeviceNotification(request.requestId);
+    }
+    if (errors.length === 1) throw error;
+    throw new AggregateError(errors, 'Find Device failed and could not be fully stopped');
   }
 }
 
-async function stopRingResources(): Promise<void> {
-  ringActive = false;
-  Vibration.cancel();
-  player?.pause();
-  try {
-    await volumeSnapshot.restore((volume) => VolumeManager.setVolume(volume));
-  } catch (error) {
-    showIncomingRingModal(true);
-    throw error;
-  }
+async function startLegacyRingResources(request: IncomingRingRequest): Promise<void> {
+  Vibration.vibrate([0, 1000, 1000], true);
+  if (Platform.OS === 'android') await volumeSnapshot.capture(readMediaVolume);
+  if (!isDesiredRing(request)) return stopRingResources(request.requestId);
+  await setAudioModeAsync({
+    playsInSilentMode: true,
+    shouldPlayInBackground: true,
+    interruptionMode: 'doNotMix',
+  });
+  if (!isDesiredRing(request)) return stopRingResources(request.requestId);
+  await setIsAudioActiveAsync(true);
+  audioSessionActive = true;
+  if (!isDesiredRing(request)) return stopRingResources(request.requestId);
+
+  if (!player) player = createAudioPlayer(require('../assets/ring.mp3'));
+  player.loop = true;
+  player.volume = 1;
+  await player.seekTo(0);
+  if (!isDesiredRing(request)) return stopRingResources(request.requestId);
+
+  if (Platform.OS === 'android') await setMediaVolume(1);
+  if (!isDesiredRing(request)) return stopRingResources(request.requestId);
+
+  player.play();
+  await waitForPlaybackStart(request);
+  if (!isDesiredRing(request)) return stopRingResources(request.requestId);
+
+  const identifier = await showFindDeviceNotification(request.requestId);
+  ringNotificationIdentifiers.set(request.requestId, identifier);
+  if (!isDesiredRing(request)) return stopRingResources(request.requestId);
+}
+
+async function stopRingResources(expectedRequestId?: string): Promise<void> {
+  const ownedRequestId = activeIncomingRing?.requestId ?? activeRingFeedback?.requestId;
+  if (expectedRequestId && ownedRequestId && expectedRequestId !== ownedRequestId) return;
+
+  const errors: unknown[] = [];
+  const feedback = activeRingFeedback;
+  activeIncomingRing = null;
+
   if (ringModalToken !== null) Modal.hide(ringModalToken);
   ringModalToken = null;
+  ringRecoveryRequestId = null;
+
+  if (feedback?.backend === 'alarmkit') {
+    try {
+      await dismissFindDeviceAlarmKit(feedback.requestId);
+    } catch (error) {
+      errors.push(error);
+    }
+  } else {
+    try {
+      Vibration.cancel();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      player?.pause();
+    } catch (error) {
+      errors.push(error);
+    }
+
+    try {
+      if (Platform.OS === 'android') await volumeSnapshot.restore(setMediaVolume);
+    } catch (error) {
+      errors.push(error);
+    }
+
+    if (audioSessionActive) {
+      try {
+        await setIsAudioActiveAsync(false);
+        audioSessionActive = false;
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+  }
+
+  for (const [requestId, identifier] of [...ringNotificationIdentifiers]) {
+    if (pendingIncomingRingStops.has(requestId)) continue;
+    try {
+      await dismissFindDeviceNotification(identifier);
+      ringNotificationIdentifiers.delete(requestId);
+    } catch (error) {
+      errors.push(error);
+    }
+  }
+
+  if (errors.length > 0) {
+    showIncomingRingRecoveryModal(expectedRequestId ?? feedback?.requestId ?? ownedRequestId ?? null);
+    throw new AggregateError(errors, 'Failed to restore Find Device resources');
+  }
+  activeRingFeedback = null;
+}
+
+function hasRingResources(): boolean {
+  return (
+    activeIncomingRing !== null ||
+    activeRingFeedback !== null ||
+    volumeSnapshot.hasValue ||
+    audioSessionActive ||
+    ringNotificationIdentifiers.size > 0 ||
+    ringModalToken !== null
+  );
+}
+
+function isDesiredRing(request: IncomingRingRequest): boolean {
+  return ringState.value?.requestId === request.requestId;
+}
+
+async function waitForPlaybackStart(request: IncomingRingRequest): Promise<void> {
+  const maximumAttempts = 10;
+  for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+    if (!isDesiredRing(request) || player?.currentStatus.playing) return;
+    if (attempt < maximumAttempts) await delay(100);
+  }
+  throw new Error('Find Device audio did not start playing');
+}
+
+async function readMediaVolume(): Promise<number> {
+  const volume = (await VolumeManager.getVolume()).volume;
+  if (!Number.isFinite(volume) || volume < 0 || volume > 1) {
+    throw new Error(`Invalid media volume: ${volume}`);
+  }
+  return volume;
+}
+
+function setMediaVolume(volume: number): Promise<void> {
+  return setVerifiedVolume({
+    target: volume,
+    read: readMediaVolume,
+    write: (nextVolume) =>
+      VolumeManager.setVolume(nextVolume, {
+        type: 'music',
+        showUI: false,
+        playSound: false,
+      }),
+  });
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function handleText(content: string): void {
@@ -209,19 +455,192 @@ function handleText(content: string): void {
   });
 }
 
-function handleApplicationMessage(message: TcpApplicationMessage): void | Promise<void> {
+function handleApplicationMessage(
+  message: TcpApplicationMessage,
+  sessionGeneration: number,
+): void | Promise<void> {
+  if (sessionGeneration !== generation || !channel) return;
   switch (message.type) {
     case 'text':
       handleText(message.content);
       return;
     case 'ring':
-      return setIncomingRingActive(message.content).catch((error) => {
+      return handleIncomingRingMessage(message, channel, sessionGeneration).catch((error) => {
         console.error('Failed to update Find Device feedback', error);
         showFeedback('响铃失败', FeedbackDuration.LONG);
       });
     case 'command':
       return;
   }
+}
+
+function handleIncomingRingMessage(
+  message: Extract<TcpApplicationMessage, { type: 'ring' }>,
+  sourceChannel: SessionChannel,
+  sessionGeneration: number,
+): Promise<void> {
+  const { content: active, requestId } = message;
+  if (!active) {
+    if (
+      outgoingRingRequest?.requestId === requestId &&
+      outgoingRingRequest.sourceChannel === sourceChannel &&
+      outgoingRingRequest.sessionGeneration === sessionGeneration
+    ) {
+      outgoingRingRequest = null;
+      hideOutgoingRingModal();
+    }
+
+    const pending = pendingIncomingRingStops.get(requestId);
+    const matchingPending =
+      pending?.request.sourceChannel === sourceChannel &&
+      pending.request.sessionGeneration === sessionGeneration
+        ? pending
+        : null;
+    if (matchingPending) {
+      pendingIncomingRingStops.delete(requestId);
+    }
+
+    const current = ringState.value;
+    if (
+      current?.requestId === requestId &&
+      current.sourceChannel === sourceChannel &&
+      current.sessionGeneration === sessionGeneration
+    ) {
+      return stopCurrentIncomingRing(current);
+    }
+
+    if (matchingPending) return dismissRingNotification(requestId);
+    return Promise.resolve();
+  }
+
+  const pending = pendingIncomingRingStops.get(requestId);
+  if (
+    pending?.request.sourceChannel === sourceChannel &&
+    pending.request.sessionGeneration === sessionGeneration
+  ) {
+    return stopIncomingFindDevice(requestId);
+  }
+
+  const current = ringState.value;
+  if (
+    current?.requestId === requestId &&
+    current?.sourceChannel === sourceChannel &&
+    current.sessionGeneration === sessionGeneration
+  ) {
+    return Promise.resolve();
+  }
+  return setIncomingRingRequest({
+    requestId,
+    sourceChannel,
+    sessionGeneration,
+  });
+}
+
+export async function stopIncomingFindDevice(requestId: string): Promise<void> {
+  let pending = pendingIncomingRingStops.get(requestId);
+  if (!pending) {
+    const request = ringState.value;
+    if (!request || request.requestId !== requestId) return;
+    pending = { request, phase: 'cleanup-pending', inFlight: null };
+    pendingIncomingRingStops.set(requestId, pending);
+  }
+  if (pending.inFlight) return pending.inFlight;
+
+  const operation = performIncomingFindDeviceStop(pending);
+  pending.inFlight = operation;
+  try {
+    await operation;
+  } finally {
+    if (pending.inFlight === operation) pending.inFlight = null;
+  }
+}
+
+async function performIncomingFindDeviceStop(pending: PendingIncomingRingStop): Promise<void> {
+  const { request } = pending;
+  if (pending.phase === 'cleanup-pending') {
+    try {
+      const ownedRequestId = activeIncomingRing?.requestId ?? activeRingFeedback?.requestId;
+      if (
+        ringState.value?.requestId === request.requestId ||
+        ownedRequestId === request.requestId
+      ) {
+        await stopCurrentIncomingRing(request);
+      }
+      pending.phase = 'ack-pending';
+    } catch (error) {
+      await ensureFindDeviceNotification(request.requestId);
+      showIncomingRingRecoveryModal(request.requestId);
+      throw error;
+    }
+  }
+
+  try {
+    await acknowledgeIncomingFindDeviceStopped(request);
+  } catch (error) {
+    await ensureFindDeviceNotification(request.requestId);
+    showIncomingRingRecoveryModal(request.requestId);
+    throw error;
+  }
+  await completeIncomingFindDeviceStop(request);
+}
+
+async function acknowledgeIncomingFindDeviceStopped(request: IncomingRingRequest): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    const pending = pendingIncomingRingStops.get(request.requestId);
+    if (!pending || pending.request !== request) return;
+    if (
+      channel !== request.sourceChannel ||
+      generation !== request.sessionGeneration ||
+      store.status !== 'connected'
+    ) {
+      return;
+    }
+    try {
+      await request.sourceChannel.send({
+        type: 'ring',
+        content: false,
+        requestId: request.requestId,
+      });
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await delay(100);
+    }
+  }
+  throw lastError;
+}
+
+async function completeIncomingFindDeviceStop(request: IncomingRingRequest): Promise<void> {
+  const pending = pendingIncomingRingStops.get(request.requestId);
+  if (!pending || pending.request !== request) return;
+  pendingIncomingRingStops.delete(request.requestId);
+  if (ringRecoveryRequestId === request.requestId) {
+    if (ringModalToken !== null) Modal.hide(ringModalToken);
+    ringModalToken = null;
+    ringRecoveryRequestId = null;
+  }
+  try {
+    await dismissRingNotification(request.requestId);
+  } catch (error) {
+    console.warn('Failed to dismiss stopped Find Device notification', error);
+  }
+}
+
+async function ensureFindDeviceNotification(requestId: string): Promise<void> {
+  try {
+    const identifier = await showFindDeviceNotification(requestId);
+    ringNotificationIdentifiers.set(requestId, identifier);
+  } catch (error) {
+    console.warn('Failed to preserve Find Device notification for retry', error);
+  }
+}
+
+async function dismissRingNotification(requestId: string): Promise<void> {
+  const identifier = ringNotificationIdentifiers.get(requestId);
+  if (!identifier) return;
+  await dismissFindDeviceNotification(identifier);
+  ringNotificationIdentifiers.delete(requestId);
 }
 
 function beginReceivingBatch(files: readonly FileMetadata[]): void {
@@ -518,6 +937,12 @@ function hideOutgoingRingModal(): void {
   outgoingRingModalToken = null;
 }
 
+function clearFindDeviceSessionState(): void {
+  outgoingRingRequest = null;
+  hideOutgoingRingModal();
+  pendingIncomingRingStops.clear();
+}
+
 function enterAvailable(): void {
   const previous = channel;
   channel = null;
@@ -527,8 +952,8 @@ function enterAvailable(): void {
   remoteDisconnect = false;
   store.setTarget(null);
   store.transitionSession('settle-available');
-  hideOutgoingRingModal();
-  void setIncomingRingActive(false).catch((error) =>
+  clearFindDeviceSessionState();
+  void setIncomingRingRequest(null).catch((error) =>
     console.error('Failed to stop Find Device feedback', error),
   );
   previous?.destroy();
@@ -538,8 +963,8 @@ function handleChannelClose(closedGeneration: number): void {
   if (closedGeneration !== generation) return;
   channel = null;
   interruptReceivingBatch();
-  hideOutgoingRingModal();
-  void setIncomingRingActive(false).catch((error) =>
+  clearFindDeviceSessionState();
+  void setIncomingRingRequest(null).catch((error) =>
     console.error('Failed to stop Find Device feedback', error),
   );
 
@@ -562,15 +987,15 @@ export function attachSessionSocket(socket: FramedSocket, device: AvailableDevic
   remoteDisconnect = false;
   store.setTarget(device);
   store.transitionSession('attach-session');
-  hideOutgoingRingModal();
-  void setIncomingRingActive(false).catch((error) =>
+  clearFindDeviceSessionState();
+  void setIncomingRingRequest(null).catch((error) =>
     console.error('Failed to stop Find Device feedback', error),
   );
   previous?.destroy();
 
   try {
     channel = new SessionChannel(socket, {
-      onMessage: handleApplicationMessage,
+      onMessage: (message) => handleApplicationMessage(message, currentGeneration),
       onFileOffer: (files) => beginReceivingBatch(files),
       onFileBegin: (file) => beginReceivingFile(file),
       onFileChunk: (file, chunk) => writeReceivingChunk(file, chunk),
@@ -599,20 +1024,60 @@ export async function sendSessionMessage(message: TcpApplicationMessage): Promis
 
 export async function setFindDeviceActive(active: boolean): Promise<void> {
   if (!active) {
-    const activeChannel = channel;
-    if (!activeChannel || store.status !== 'connected') {
+    const request = outgoingRingRequest;
+    if (!request) {
       hideOutgoingRingModal();
       return;
     }
-    await activeChannel.send({ type: 'ring', content: false });
-    if (channel === activeChannel) hideOutgoingRingModal();
+    if (
+      channel !== request.sourceChannel ||
+      generation !== request.sessionGeneration ||
+      store.status !== 'connected'
+    ) {
+      if (outgoingRingRequest === request) outgoingRingRequest = null;
+      hideOutgoingRingModal();
+      return;
+    }
+    await request.sourceChannel.send({
+      type: 'ring',
+      content: false,
+      requestId: request.requestId,
+    });
+    if (outgoingRingRequest === request) {
+      outgoingRingRequest = null;
+      hideOutgoingRingModal();
+    }
     return;
   }
 
   const activeChannel = channel;
   if (!activeChannel || store.status !== 'connected') throw new Error('No active Session');
-  await activeChannel.send({ type: 'ring', content: true });
-  if (channel !== activeChannel || store.status !== 'connected') return;
+  if (
+    outgoingRingRequest?.sourceChannel === activeChannel &&
+    outgoingRingRequest.sessionGeneration === generation
+  ) {
+    return;
+  }
+
+  const request: OutgoingRingRequest = {
+    requestId: String(uuid.v4()),
+    sourceChannel: activeChannel,
+    sessionGeneration: generation,
+  };
+  outgoingRingRequest = request;
+  try {
+    await activeChannel.send({ type: 'ring', content: true, requestId: request.requestId });
+  } catch (error) {
+    if (outgoingRingRequest === request) outgoingRingRequest = null;
+    throw error;
+  }
+  if (
+    outgoingRingRequest !== request ||
+    channel !== activeChannel ||
+    store.status !== 'connected'
+  ) {
+    return;
+  }
 
   hideOutgoingRingModal();
   outgoingRingModalToken = Modal.show({
@@ -681,10 +1146,12 @@ async function* readFileChunks(
 export async function disconnectSession(notifyPeer = true): Promise<void> {
   localDisconnect = true;
   interruptReceivingBatch();
-  hideOutgoingRingModal();
-  void setIncomingRingActive(false).catch((error) =>
-    console.error('Failed to stop Find Device feedback', error),
-  );
+  clearFindDeviceSessionState();
+  try {
+    await setIncomingRingRequest(null);
+  } catch (error) {
+    console.error('Failed to stop Find Device feedback', error);
+  }
 
   const active = channel;
   if (!active) {

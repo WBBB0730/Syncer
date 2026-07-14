@@ -1,7 +1,7 @@
 <template>
   <a-button class="receive-history__show-button" type="text" @click="show">
     <template #icon>
-      <FileTextOutlined />
+      <HistoryOutlined />
     </template>
   </a-button>
 
@@ -50,7 +50,7 @@
 </template>
 
 <script setup lang="ts">
-import { FileTextOutlined, RightOutlined } from '@ant-design/icons-vue'
+import { HistoryOutlined, RightOutlined } from '@ant-design/icons-vue'
 import { computed, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 import { message } from 'ant-design-vue'

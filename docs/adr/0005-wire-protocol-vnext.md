@@ -11,6 +11,7 @@ The v1 wire protocol (shared port `5742`, UDP broadcast types, JSON + trailing `
 ## Decision
 
 - **Breaking upgrade**: no dual-stack compatibility with the pre-refactor wire protocol; both peers must speak the same Protocol Version.
+- **Current generation**: Protocol Version 3 adds the cross-platform media Command values and gives every Find Device request a UUID `requestId`. The same ID is echoed by start, stop, and receiver acknowledgement messages so a delayed stop cannot close a newer request. Version 2 peers are refused during handshake rather than accepting a Session that can later misinterpret these messages.
 - **Framing**: length-prefixed frames (e.g. 4-byte big-endian length + payload). Control messages may use JSON payloads; File Transfer uses binary chunks on the same Session — not Base64-inside-JSON and not `^` delimiters. Streaming and disk ownership are defined by ADR-0006.
 - **Discovery transport** (see ADR-0004):
   - Primary: UDP multicast/broadcast **discovery request** from the finder; Presence peers **unicast** reply with TCP address and candidate identity fields.

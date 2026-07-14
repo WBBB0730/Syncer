@@ -14,9 +14,20 @@ const electronTimeoutMs = 30_000
 let exitCode = 1
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-function terminateProcessTree(child) {
-  if (!child.pid || child.exitCode !== null) return
-  spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' })
+function terminateProcessTree(child, force = false) {
+  if (!child.pid || (!force && (child.exitCode !== null || child.signalCode !== null))) return
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' })
+    return
+  }
+
+  try {
+    process.kill(-child.pid, 'SIGKILL')
+  } catch (error) {
+    if (error?.code !== 'ESRCH') {
+      console.error(`Failed to terminate desktop test process tree: ${error}`)
+    }
+  }
 }
 
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
@@ -30,7 +41,8 @@ async function runElectronIntegration(harness) {
       SYNCER_NETWORK_TEST_USER_DATA: userData
     },
     stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true
+    windowsHide: true,
+    detached: process.platform !== 'win32'
   })
   let stdout = ''
   child.stdout.on('data', (chunk) => {
@@ -43,7 +55,7 @@ async function runElectronIntegration(harness) {
   let timedOut = false
   const timeout = setTimeout(() => {
     timedOut = true
-    terminateProcessTree(child)
+    terminateProcessTree(child, true)
   }, electronTimeoutMs)
 
   try {

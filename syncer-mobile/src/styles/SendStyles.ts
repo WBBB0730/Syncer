@@ -4,6 +4,13 @@ import colors from './colors';
 import theme from './theme';
 
 export default StyleSheet.create({
+  page: {
+    flex: 1,
+  },
+  pageContent: {
+    flexGrow: 1,
+    paddingBottom: 16,
+  },
   target: {
     display: 'flex',
     flexDirection: 'row',
@@ -12,13 +19,24 @@ export default StyleSheet.create({
     marginBottom: 8,
   },
   targetName: {
-    maxWidth: 240,
+    width: 0,
+    flexGrow: 1,
     color: theme.mainTextColor,
     fontSize: 24,
     fontWeight: 'bold',
   },
   whitelist: {
+    minHeight: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 16,
     marginBottom: 16,
+  },
+  whitelistLabel: {
+    flexShrink: 1,
+    color: theme.mainTextColor,
+    fontSize: 14,
   },
   selectType: {
     marginHorizontal: 0,
@@ -67,28 +85,28 @@ export default StyleSheet.create({
     flexShrink: 0,
   },
   commandButtonWrap: {
-    position: 'relative',
-    height: 200,
+    gap: 10,
     marginTop: 16,
   },
+  commandButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
   commandButton: {
-    position: 'absolute',
-    display: 'flex',
+    flex: 1,
+    minWidth: 0,
+    height: 88,
     justifyContent: 'center',
     alignItems: 'center',
-    width: 48,
-    height: 48,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.orange3,
     borderRadius: 8,
-    backgroundColor: colors.orange2,
+    backgroundColor: colors.orange1,
   },
   commandButtonText: {
     color: theme.secondaryTextColor,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  commandButtonIcon: {
-    width: 28,
-    height: 28,
-    opacity: 0.65,
+    fontSize: 12,
+    textAlign: 'center',
   },
 });

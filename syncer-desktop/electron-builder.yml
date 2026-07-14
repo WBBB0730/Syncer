@@ -23,6 +23,23 @@ electronFuses:
 win:
   executableName: Syncer
   icon: build/icon.ico
+mac:
+  appId: com.wbbb.syncer.desktop
+  identity: '-'
+  hardenedRuntime: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  icon: build/icon.icns
+  category: public.app-category.utilities
+  minimumSystemVersion: '14.0'
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+  artifactName: ${name}-${version}-${arch}.${ext}
+  extendInfo:
+    NSLocalNetworkUsageDescription: Syncer 使用本地网络发现并连接同一局域网内的设备。
 nsis:
   oneClick: false
   allowToChangeInstallationDirectory: true

@@ -9,6 +9,8 @@ import type {
 
 export const WHITELIST_SESSION_ACCEPTED_CHANNEL = 'syncer:whitelist-session-accepted'
 export const CONNECTION_ATTEMPT_FAILED_CHANNEL = 'syncer:connection-attempt-failed'
+export const FIND_DEVICE_STOPPED_CHANNEL = 'syncer:find-device-stopped'
+export const COMMAND_FAILED_CHANNEL = 'syncer:command-failed'
 
 export type {
   AvailableDevice,
@@ -92,6 +94,12 @@ export interface WhitelistSessionAcceptedPayload {
   name: string
 }
 
+export interface CommandFailedPayload {
+  command: CommandKey
+  reason: 'unsupported-platform' | 'accessibility-permission-required' | 'injection-failed'
+  message: string
+}
+
 export interface SyncerAPI {
   rendererReady: (legacyStorage: LegacyLocalStorageValues) => Promise<AppSnapshot>
   getState: () => Promise<AppSnapshot>
@@ -126,5 +134,7 @@ export interface SyncerAPI {
   ) => () => void
   onTextReceived: (callback: (payload: { content: string }) => void) => () => void
   onFileReceived: (callback: (payload: ReceivedFileBatch) => void) => () => void
+  onFindDeviceStopped: (callback: () => void) => () => void
+  onCommandFailed: (callback: (payload: CommandFailedPayload) => void) => () => void
   onConnectionLost: (callback: () => void) => () => void
 }

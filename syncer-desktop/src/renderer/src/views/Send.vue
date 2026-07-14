@@ -6,9 +6,13 @@
   </div>
 
   <div class="whitelist">
-    <a-checkbox :checked="isInWhitelist" @change="setIsInWhitelist(!isInWhitelist)">
-      自动接受此设备的连接请求
-    </a-checkbox>
+    <span>自动接受此设备的连接请求</span>
+    <a-switch
+      aria-label="自动接受此设备的连接请求"
+      :checked="isInWhitelist"
+      :loading="updatingWhitelist"
+      @change="setIsInWhitelist"
+    />
   </div>
 
   <a-segmented
@@ -49,7 +53,7 @@
   </div>
 
   <div v-show="type === 'command' && store.target?.device === 'mobile'" class="send-ring">
-    <a-button type="primary" @click="sendRing">查找设备</a-button>
+    <a-button type="primary" :loading="startingFindDevice" @click="sendRing">查找设备</a-button>
   </div>
 </template>
 
@@ -64,8 +68,23 @@ import { performAction } from '../utils/action'
 
 const store = useAppStore()
 let findDeviceModal: ReturnType<typeof Modal.info> | null = null
+let unsubscribeFindDeviceStopped: (() => void) | null = null
+const startingFindDevice = ref(false)
+let stoppedWhileStartingFindDevice = false
+let unmounted = false
+
+function closeFindDeviceModal(): void {
+  findDeviceModal?.destroy()
+  findDeviceModal = null
+}
+
+function handleFindDeviceStopped(): void {
+  if (startingFindDevice.value) stoppedWhileStartingFindDevice = true
+  closeFindDeviceModal()
+}
 
 const isInWhitelist = ref(false)
+const updatingWhitelist = ref(false)
 
 async function getIsInWhitelist(): Promise<void> {
   if (!store.target) return
@@ -78,10 +97,18 @@ async function getIsInWhitelist(): Promise<void> {
 async function setIsInWhitelist(next: boolean): Promise<void> {
   if (!store.target) return
   const target = store.target
-  if (
-    await performAction(() => window.api.setDeviceWhitelisted(target.uuid, next), '更新白名单失败')
-  ) {
-    isInWhitelist.value = next
+  updatingWhitelist.value = true
+  try {
+    if (
+      await performAction(
+        () => window.api.setDeviceWhitelisted(target.uuid, next),
+        '更新白名单失败'
+      )
+    ) {
+      isInWhitelist.value = next
+    }
+  } finally {
+    updatingWhitelist.value = false
   }
 }
 
@@ -144,36 +171,51 @@ async function sendFile(): Promise<void> {
 }
 
 async function sendRing(): Promise<void> {
-  if (!(await performAction(() => window.api.setFindDeviceActive(true), '启动查找设备失败'))) {
-    return
-  }
-  findDeviceModal?.destroy()
-  findDeviceModal = Modal.info({
-    centered: true,
-    icon: null,
-    title: '正在查找',
-    content: '设备正在响铃...',
-    okText: '停止',
-    onOk: (close) => {
-      void performAction(() => window.api.setFindDeviceActive(false), '停止查找设备失败').then(
-        (succeeded) => {
-          if (succeeded) {
-            findDeviceModal = null
-            close()
+  if (startingFindDevice.value) return
+  startingFindDevice.value = true
+  stoppedWhileStartingFindDevice = false
+  try {
+    const succeeded = await performAction(
+      () => window.api.setFindDeviceActive(true),
+      '启动查找设备失败'
+    )
+    if (!succeeded || stoppedWhileStartingFindDevice || unmounted) return
+
+    closeFindDeviceModal()
+    findDeviceModal = Modal.info({
+      centered: true,
+      icon: null,
+      title: '正在查找',
+      content: '设备正在响铃...',
+      okText: '停止',
+      onOk: (close) => {
+        void performAction(() => window.api.setFindDeviceActive(false), '停止查找设备失败').then(
+          (succeeded) => {
+            if (succeeded) {
+              findDeviceModal = null
+              close()
+            }
           }
-        }
-      )
-    }
-  })
+        )
+      }
+    })
+  } finally {
+    startingFindDevice.value = false
+  }
 }
 
 onMounted(() => {
+  unmounted = false
   void getIsInWhitelist()
+  unsubscribeFindDeviceStopped = window.api.onFindDeviceStopped(handleFindDeviceStopped)
 })
 
 onUnmounted(() => {
-  findDeviceModal?.destroy()
-  findDeviceModal = null
+  unmounted = true
+  stoppedWhileStartingFindDevice = true
+  unsubscribeFindDeviceStopped?.()
+  unsubscribeFindDeviceStopped = null
+  closeFindDeviceModal()
 })
 </script>
 

@@ -193,7 +193,10 @@ export const commandKeySchema = z.enum([
   'f5',
   'audio_mute',
   'audio_vol_down',
-  'audio_vol_up'
+  'audio_vol_up',
+  'audio_play_pause',
+  'audio_prev',
+  'audio_next'
 ])
 export type CommandKey = z.infer<typeof commandKeySchema>
 
@@ -204,7 +207,8 @@ export const tcpCommandSchema = z.object({
 
 export const tcpRingSchema = z.object({
   type: z.literal('ring'),
-  content: z.boolean()
+  content: z.boolean(),
+  requestId: deviceUuidSchema
 })
 
 export const tcpHandshakeMessageSchema = z.discriminatedUnion('type', [

@@ -1,8 +1,11 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import {
+  COMMAND_FAILED_CHANNEL,
   CONNECTION_ATTEMPT_FAILED_CHANNEL,
+  FIND_DEVICE_STOPPED_CHANNEL,
   WHITELIST_SESSION_ACCEPTED_CHANNEL,
   type AppSnapshot,
+  type CommandFailedPayload,
   type CommandKey,
   type ConnectionAttemptFailedPayload,
   type ConnectionRefusedPayload,
@@ -82,6 +85,10 @@ const api: SyncerAPI = {
     subscribe('syncer:text-received', callback),
   onFileReceived: (callback: (payload: ReceivedFileBatch) => void): (() => void) =>
     subscribe('syncer:file-received', callback),
+  onFindDeviceStopped: (callback: () => void): (() => void) =>
+    subscribe(FIND_DEVICE_STOPPED_CHANNEL, callback),
+  onCommandFailed: (callback: (payload: CommandFailedPayload) => void): (() => void) =>
+    subscribe(COMMAND_FAILED_CHANNEL, callback),
   onConnectionLost: (callback: () => void): (() => void) => {
     const handler = (): void => callback()
     ipcRenderer.on('syncer:connection-lost', handler)

@@ -1,10 +1,10 @@
-import { AntDesign as Icon } from '@expo/vector-icons';
-import { Button, ButtonGroup, CheckBox, Input } from '@rneui/themed';
+import { AntDesign as Icon, MaterialCommunityIcons as MediaIcon } from '@expo/vector-icons';
+import { Button, ButtonGroup, Input } from '@rneui/themed';
 import type { CommandKey } from '@syncer/protocol';
 import * as DocumentPicker from 'expo-document-picker';
 import { observer } from 'mobx-react';
 import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 import { showReceiveHistory } from '../components/ReceiveHistory';
 import {
@@ -24,12 +24,12 @@ export default function Send() {
   const [type, setType] = useState<SendType>('text');
 
   return (
-    <View>
+    <ScrollView style={styles.page} contentContainerStyle={styles.pageContent}>
       <Target />
       <Whitelist />
       <SelectType type={type} setType={setType} />
       <SendContent type={type} />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -50,7 +50,7 @@ const Target = observer(() => {
       </Button>
       <Button
         type="clear"
-        icon={<Icon name="file-text" size={20} color={theme.secondaryTextColor} />}
+        icon={<Icon name="history" size={20} color={theme.secondaryTextColor} />}
         containerStyle={{ marginLeft: 'auto' }}
         onPress={showReceiveHistory}
       />
@@ -60,6 +60,7 @@ const Target = observer(() => {
 
 const Whitelist = () => {
   const [isWhitelisted, setWhitelisted] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const targetUuid = store.target?.uuid;
@@ -75,22 +76,29 @@ const Whitelist = () => {
   async function updateWhitelist(next: boolean) {
     const targetUuid = store.target?.uuid;
     if (!targetUuid) return;
+    setSaving(true);
     try {
       const whitelist = await setDeviceWhitelisted(targetUuid, next);
       setWhitelisted(Object.hasOwn(whitelist, targetUuid));
     } catch (error) {
       console.error('Failed to update Whitelist', error);
       showFeedback('保存自动接受设置失败', FeedbackDuration.LONG);
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
     <View style={styles.whitelist}>
-      <CheckBox
-        checked={isWhitelisted}
-        size={20}
-        title="自动接受此设备的连接请求"
-        onPress={() => void updateWhitelist(!isWhitelisted)}
+      <Text style={styles.whitelistLabel}>自动接受此设备的连接请求</Text>
+      <Switch
+        accessibilityLabel="自动接受此设备的连接请求"
+        value={isWhitelisted}
+        disabled={saving}
+        trackColor={{ false: theme.borderColor, true: theme.hoverColor }}
+        thumbColor={theme.bgColorWhite}
+        ios_backgroundColor={theme.borderColor}
+        onValueChange={(next) => void updateWhitelist(next)}
       />
     </View>
   );
@@ -198,7 +206,7 @@ const SendFile = () => {
         <Button onPress={selectFile}>添加文件</Button>
       </View>
       {files.length > 0 ? (
-        <ScrollView style={styles.fileList}>
+        <ScrollView style={styles.fileList} nestedScrollEnabled>
           {files.map((file, index) => (
             <View key={index} style={styles.fileListItem}>
               <Text style={styles.fileListItemName}>{file.name}</Text>
@@ -232,43 +240,46 @@ const SendCommand = () => {
   }
 
   return (
-    <>
-      <View style={styles.commandButtonWrap}>
-        <TouchableOpacity style={[styles.commandButton, { right: 50, bottom: 50 }]} onPress={() => sendCommand('up')}>
-          <Text style={styles.commandButtonText}>↑</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.commandButton, { right: 50, bottom: 0 }]} onPress={() => sendCommand('down')}>
-          <Text style={styles.commandButtonText}>↓</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.commandButton, { right: 100, bottom: 0 }]} onPress={() => sendCommand('left')}>
-          <Text style={styles.commandButtonText}>←</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.commandButton, { right: 0, bottom: 0 }]} onPress={() => sendCommand('right')}>
-          <Text style={styles.commandButtonText}>→</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.commandButton, { left: 0, bottom: 0, width: 148 }]} onPress={() => sendCommand('space')}>
-          <Text style={styles.commandButtonText}>SPACE</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.commandButton, { left: 0, top: 0 }]} onPress={() => sendCommand('escape')}>
-          <Text style={styles.commandButtonText}>ESC</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.commandButton, { left: 50, top: 0 }]} onPress={() => sendCommand('f5')}>
-          <Text style={styles.commandButtonText}>F5</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.commandButton, { right: 100, top: 0 }]} onPress={() => sendCommand('audio_mute')}>
-          <Image source={require('../assets/vol_mute.png')} style={styles.commandButtonIcon} />
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.commandButton, { right: 50, top: 0 }]} onPress={() => sendCommand('audio_vol_down')}>
-          <Image source={require('../assets/vol_down.png')} style={styles.commandButtonIcon} />
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.commandButton, { right: 0, top: 0 }]} onPress={() => sendCommand('audio_vol_up')}>
-          <Image source={require('../assets/vol_up.png')} style={styles.commandButtonIcon} />
-        </TouchableOpacity>
-      </View>
-    </>
+    <View style={styles.commandButtonWrap}>
+      {mediaCommandRows.map((row, rowIndex) => (
+        <View key={rowIndex} style={styles.commandButtonRow}>
+          {row.map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              accessibilityRole="button"
+              accessibilityLabel={item.label}
+              activeOpacity={0.7}
+              style={styles.commandButton}
+              onPress={() => void sendCommand(item.key)}
+            >
+              <MediaIcon name={item.icon} size={30} color={theme.brandColor} />
+              <Text style={styles.commandButtonText}>{item.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      ))}
+    </View>
   );
 };
+
+type MediaCommand = {
+  key: CommandKey;
+  icon: React.ComponentProps<typeof MediaIcon>['name'];
+  label: string;
+};
+
+const mediaCommandRows: MediaCommand[][] = [
+  [
+    { key: 'audio_prev', icon: 'skip-previous', label: '上一曲' },
+    { key: 'audio_play_pause', icon: 'play-pause', label: '播放/暂停' },
+    { key: 'audio_next', icon: 'skip-next', label: '下一曲' },
+  ],
+  [
+    { key: 'audio_mute', icon: 'volume-mute', label: '静音' },
+    { key: 'audio_vol_down', icon: 'volume-minus', label: '音量减' },
+    { key: 'audio_vol_up', icon: 'volume-plus', label: '音量加' },
+  ],
+];
 
 const SendRing = () => {
   const sendRing = async () => {
