@@ -77,7 +77,9 @@ pnpm --filter syncer-mobile exec expo run:android
 
 `android/` 与 `ios/` 是 [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/) 的生成目录，不提交到仓库；原生权限、正式签名和本地存储模块都由 `app.json`、config plugin 与本地 Expo module 重建。不要直接修改生成目录。
 
-正式版 Android 构建不会使用调试签名；构建前需提供以下环境变量：
+Android 使用两个相互独立的发布身份：正式版为 `com.wbbb.syncer`，Beta 为 `com.wbbb.syncer.beta`。本地未设置 `SYNCER_RELEASE_CHANNEL` 时默认生成 Beta；正式版构建需设置 `SYNCER_RELEASE_CHANNEL=production`。
+
+Android release 构建不会使用调试签名；构建前需提供以下环境变量：
 
 - `SYNCER_ANDROID_KEYSTORE_FILE`
 - `SYNCER_ANDROID_KEYSTORE_PASSWORD`
@@ -97,10 +99,10 @@ pnpm --filter syncer-mobile exec expo run:ios
 
 版本由 [bumpp](https://github.com/antfu-collective/bumpp) 统一更新根项目、桌面端和移动端；共享协议 `@syncer/protocol` 保持独立版本。执行 `pnpm release <version>` 会创建并推送对应的 `v<version>` tag。
 
-- `v1.0.0`：构建 Android release APK 和 Windows 生产安装包，并发布正式 GitHub Release。
-- `v1.0.0-beta.0`：构建 Android debug APK 和 Windows development mode 安装包，并发布 GitHub Prerelease。
+- `v1.0.0`：构建 `com.wbbb.syncer` Android release APK 和 Windows 生产安装包，并发布正式 GitHub Release。
+- `v1.0.0-beta.0`：使用独立签名构建 `com.wbbb.syncer.beta` Android release APK 和 Windows 生产安装包，并发布 GitHub Prerelease。
 
-GitHub Actions 只在推送上述版本 tag 时运行。Android 正式构建需要仓库配置 `SYNCER_ANDROID_KEYSTORE_BASE64`、`SYNCER_ANDROID_KEYSTORE_PASSWORD`、`SYNCER_ANDROID_KEY_ALIAS` 和 `SYNCER_ANDROID_KEY_PASSWORD` 四个 Actions secrets；iOS 暂不进入自动发布。
+GitHub Actions 只在推送上述版本 tag 时运行。Android 正式版与 Beta 各自配置 `SYNCER_ANDROID_PRODUCTION_*` 和 `SYNCER_ANDROID_BETA_*` 四个 Actions secrets，后缀均为 `KEYSTORE_BASE64`、`KEYSTORE_PASSWORD`、`KEY_ALIAS`、`KEY_PASSWORD`；iOS 暂不进入自动发布。
 
 ## 已完成的功能
 

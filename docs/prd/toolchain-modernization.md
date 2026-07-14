@@ -27,7 +27,8 @@ Syncer 桌面端与移动端长期停留在已过时的脚手架与运行时（E
 - `syncer-mobile/android/` 与 `syncer-mobile/ios/` 仅为 CNG 输出，不进入版本库。权限、最低系统版本、Android 正式签名、iOS entitlement、启动资源与本地 Expo module 都必须从 `app.json`、config plugin 或模块源码在干净 prebuild 中重建。
 - iOS 真机 Discovery / Presence 依赖 Apple 批准的 Multicast Networking Entitlement 及包含该能力的 provisioning profile；仓库只能声明配置，不能代替外部申请与签名。
 - 网络与 Session 模型遵循 ADR-0004，线协议遵循 ADR-0005，File Transfer 资源模型遵循 ADR-0006，Android 公共下载保存遵循 ADR-0007。
-- 版本由 bumpp 统一更新根项目、桌面端与移动端，共享协议保持独立版本；只在推送 `vX.Y.Z` 或 `vX.Y.Z-beta.N` tag 时触发 GitHub Actions，分别生成正式或 debug 的 Android、Windows 产物并创建 GitHub Release，iOS 不在当前自动发布范围内。
+- Android 正式版使用 `com.wbbb.syncer` 与独立的 Production Key，Beta 使用 `com.wbbb.syncer.beta` 与独立的 Beta Key；两者可并存安装且不共享应用数据或签名身份，详见 ADR-0008。
+- 版本由 bumpp 统一更新根项目、桌面端与移动端，共享协议保持独立版本；只在推送 `vX.Y.Z` 或 `vX.Y.Z-beta.N` tag 时触发 GitHub Actions，两种 tag 都生成 Android release APK 与 Windows 生产安装包，Beta 通过独立发布身份与 GitHub Prerelease 区分，iOS 不在当前自动发布范围内。
 
 ## Testing Decisions
 

@@ -24,7 +24,7 @@
       }
     },
     "android": {
-      "package": "com.syncer",
+      "package": "com.wbbb.syncer",
       "allowBackup": false,
       "permissions": [
         "INTERNET",
