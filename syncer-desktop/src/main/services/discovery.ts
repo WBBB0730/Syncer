@@ -23,9 +23,11 @@ import {
   isIpv4Address,
   isRelevantDiscoveryHello,
   mapPool,
+  mergeAvailableDevice,
   parseUdpMessage,
   subnetBroadcastAddress,
   subnetHostsForNetworks,
+  subnetsWithoutAddresses,
   type AvailableDevice,
   type UdpHello
 } from '@syncer/protocol'
@@ -39,7 +41,8 @@ let socket: dgram.Socket | null = null
 let announceTimer: NodeJS.Timeout | null = null
 let startPromise: Promise<void> | null = null
 let ready = false
-let multicastMembership = false
+const multicastMemberships = new Set<string>()
+let multicastSendQueue = Promise.resolve()
 let candidateFlushTimer: NodeJS.Timeout | null = null
 let discoveryFailureHandler: ((error: Error) => void) | null = null
 
@@ -68,8 +71,7 @@ function toDevice(hello: UdpHello, address: string): AvailableDevice {
     uuid: hello.uuid,
     name: hello.name,
     device: hello.device,
-    port: hello.tcpPort,
-    address
+    endpoints: [{ port: hello.tcpPort, address }]
   }
 }
 
@@ -82,13 +84,14 @@ function remember(device: AvailableDevice, deduplicationKey = device.uuid): void
   ) {
     return
   }
+  const merged = mergeAvailableDevice(pendingCandidates.get(device.uuid), device)
   if (pendingCandidates.has(device.uuid)) pendingCandidates.delete(device.uuid)
   while (pendingCandidates.size >= MAX_AVAILABLE_DEVICES) {
     const oldest = pendingCandidates.keys().next().value as string | undefined
     if (!oldest) break
     pendingCandidates.delete(oldest)
   }
-  pendingCandidates.set(device.uuid, device)
+  pendingCandidates.set(device.uuid, merged)
   candidateFlushTimer ??= setTimeout(flushCandidates, DISCOVERY_UI_FLUSH_MS)
 }
 
@@ -156,12 +159,69 @@ function discoverPayload(queryId: string): Buffer {
 function send(buf: Buffer, port: number, address: string): Promise<void> {
   const current = socket
   if (!current || !ready) return Promise.reject(new Error('Discovery socket is not ready'))
+  return sendWithSocket(current, buf, port, address)
+}
+
+function sendWithSocket(
+  current: dgram.Socket,
+  buf: Buffer,
+  port: number,
+  address: string
+): Promise<void> {
   return new Promise((resolve, reject) => {
     current.send(buf, port, address, (error) => {
       if (error) reject(error)
       else resolve()
     })
   })
+}
+
+function refreshMulticastMemberships(
+  current: dgram.Socket,
+  networks: readonly { address: string }[]
+): void {
+  const activeInterfaces = new Set(networks.map(({ address }) => address))
+  for (const address of multicastMemberships) {
+    if (activeInterfaces.has(address)) continue
+    try {
+      current.dropMembership(MULTICAST_GROUP, address)
+    } catch (error) {
+      console.warn(`Failed to leave the Discovery multicast group on ${address}`, error)
+    }
+    multicastMemberships.delete(address)
+  }
+
+  for (const address of activeInterfaces) {
+    if (multicastMemberships.has(address)) continue
+    try {
+      current.addMembership(MULTICAST_GROUP, address)
+      multicastMemberships.add(address)
+    } catch (error) {
+      console.warn(`Failed to join the Discovery multicast group on ${address}`, error)
+    }
+  }
+}
+
+function sendMulticast(
+  payload: Buffer,
+  networks: readonly { address: string }[],
+  operation: string
+): Promise<void> {
+  const interfaces = [...new Set(networks.map(({ address }) => address))]
+  const task = multicastSendQueue.then(async () => {
+    const current = socket
+    if (!current || !ready) return
+    for (const address of interfaces) {
+      try {
+        current.setMulticastInterface(address)
+        await sendWithSocket(current, payload, UDP_PORT, MULTICAST_GROUP)
+      } catch (error) {
+        console.error(`${operation} on ${address} failed`, error)
+      }
+    }
+  })
+  multicastSendQueue = task.catch(() => undefined)
+  return task
 }
 
 async function sendToDestinations(
@@ -177,6 +237,30 @@ async function sendToDestinations(
       console.error(`${operation} to ${destinations[index]} failed`, result.reason)
     }
   })
+}
+
+function broadcastDestinations(
+  networks: readonly { address: string; netmask: string }[]
+): string[] {
+  const destinations = new Set([BROADCAST_ADDRESS])
+  for (const network of networks) {
+    const broadcast = subnetBroadcastAddress(network.address, network.netmask)
+    if (broadcast) destinations.add(broadcast)
+  }
+  return [...destinations]
+}
+
+async function sendOnNetworks(
+  payload: Buffer,
+  networks: readonly { address: string; netmask: string }[],
+  operation: string
+): Promise<void> {
+  const current = socket
+  if (current && ready) refreshMulticastMemberships(current, networks)
+  await Promise.all([
+    sendToDestinations(payload, broadcastDestinations(networks), operation),
+    sendMulticast(payload, networks, operation)
+  ])
 }
 
 function replyHello(deviceUuid: string, queryId: string, port: number, address: string): void {
@@ -196,7 +280,7 @@ export function startDiscovery(): Promise<void> {
   if (ready) return Promise.resolve()
   if (startPromise) return startPromise
 
-  const nextSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true })
+  const nextSocket = dgram.createSocket('udp4')
   socket = nextSocket
 
   nextSocket.on('message', (msg, rinfo) => {
@@ -211,7 +295,9 @@ export function startDiscovery(): Promise<void> {
     if (data.type === 'hello' && isRelevantDiscoveryHello(data, activeSearch?.queryId)) {
       remember(
         toDevice(data, rinfo.address),
-        data.announce ? data.uuid : `${data.queryId}:${data.uuid}`
+        data.announce
+          ? `${data.uuid}@${rinfo.address}`
+          : `${data.queryId}:${data.uuid}@${rinfo.address}`
       )
     }
   })
@@ -221,7 +307,7 @@ export function startDiscovery(): Promise<void> {
       nextSocket.off('error', failStartup)
       if (socket === nextSocket) socket = null
       ready = false
-      multicastMembership = false
+      multicastMemberships.clear()
       let startupError: Error = error
       try {
         nextSocket.close()
@@ -244,12 +330,7 @@ export function startDiscovery(): Promise<void> {
       } catch (error) {
         console.warn('Failed to configure Discovery multicast TTL', error)
       }
-      try {
-        nextSocket.addMembership(MULTICAST_GROUP)
-        multicastMembership = true
-      } catch (error) {
-        console.warn('Failed to join the optional Discovery multicast group', error)
-      }
+      refreshMulticastMemberships(nextSocket, listLanIpv4Networks())
 
       nextSocket.off('error', failStartup)
       let failureReported = false
@@ -257,7 +338,7 @@ export function startDiscovery(): Promise<void> {
         if (socket !== nextSocket) return
         socket = null
         ready = false
-        multicastMembership = false
+        multicastMemberships.clear()
         cancelDeviceSearch()
         stopAnnounceLoop()
         let failure = error
@@ -304,7 +385,7 @@ function startAnnounceLoop(): void {
     if (appState.pruneAvailableDevices()) emitState()
     if (appState.status !== 'available' || !ready) return
     const buf = identityPayload(true)
-    void sendToDestinations(buf, [MULTICAST_GROUP, BROADCAST_ADDRESS], 'Presence announcement')
+    void sendOnNetworks(buf, listLanIpv4Networks(), 'Presence announcement')
   }
   tick()
   announceTimer = setInterval(tick, ANNOUNCE_INTERVAL_MS)
@@ -354,7 +435,9 @@ export async function searchDevices(manualIp?: string): Promise<void> {
         signal: controller.signal
       })
       if (isActiveSearch(controller) && hello && hello.uuid !== appState.uuid) {
-        appState.addAvailableDevices([{ ...hello, port: TCP_PORT, address: manualIp }])
+        appState.addAvailableDevices([
+          { ...hello, endpoints: [{ port: TCP_PORT, address: manualIp }] }
+        ])
         emitState()
       }
       return
@@ -362,23 +445,23 @@ export async function searchDevices(manualIp?: string): Promise<void> {
 
     const buf = discoverPayload(search.queryId)
     const networks = listLanIpv4Networks()
-    const destinations = new Set([MULTICAST_GROUP, BROADCAST_ADDRESS])
-    for (const network of networks) {
-      const broadcast = subnetBroadcastAddress(network.address, network.netmask)
-      if (broadcast) destinations.add(broadcast)
-    }
     for (let i = 0; i < DISCOVER_ROUNDS; i++) {
       if (!isActiveSearch(controller)) return
-      await sendToDestinations(buf, [...destinations], 'Discovery query')
+      await sendOnNetworks(buf, networks, 'Discovery query')
       if (!(await waitForSearchInterval(controller.signal))) return
     }
     if (!isActiveSearch(controller)) return
     flushCandidates()
 
-    // Supplementary TCP probe when UDP found nothing.
-    if (appState.availableDeviceMap.size === 0) {
-      const hosts = subnetHostsForNetworks(networks, SUBNET_PROBE_MAX_HOSTS)
+    // Probe each subnet that produced no UDP candidate; a response on one interface must not
+    // suppress recovery on another interface.
+    const discoveredAddresses = [...appState.availableDeviceMap.values()].flatMap((device) =>
+      device.endpoints.map(({ address }) => address)
+    )
+    const probeNetworks = subnetsWithoutAddresses(networks, discoveredAddresses)
+    const hosts = subnetHostsForNetworks(probeNetworks, SUBNET_PROBE_MAX_HOSTS)
 
+    if (hosts.length > 0) {
       await mapPool(
         hosts,
         SUBNET_PROBE_CONCURRENCY,
@@ -393,10 +476,9 @@ export async function searchDevices(manualIp?: string): Promise<void> {
               uuid: hello.uuid,
               name: hello.name,
               device: hello.device,
-              port: TCP_PORT,
-              address: host
+              endpoints: [{ port: TCP_PORT, address: host }]
             },
-            `${search.queryId}:${hello.uuid}`
+            `${search.queryId}:${hello.uuid}@${host}`
           )
           return hello.uuid
         },
@@ -423,20 +505,20 @@ export async function stopDiscovery(): Promise<void> {
       return
     }
   }
+  await multicastSendQueue
   const current = socket
   socket = null
   ready = false
   if (!current) return
-  let cleanupError: unknown = null
-  if (multicastMembership) {
+  const cleanupErrors: unknown[] = []
+  for (const address of multicastMemberships) {
     try {
-      current.dropMembership(MULTICAST_GROUP)
+      current.dropMembership(MULTICAST_GROUP, address)
     } catch (error) {
-      cleanupError = error
-    } finally {
-      multicastMembership = false
+      cleanupErrors.push(error)
     }
   }
+  multicastMemberships.clear()
   try {
     await new Promise<void>((resolve, reject) => {
       try {
@@ -446,12 +528,11 @@ export async function stopDiscovery(): Promise<void> {
       }
     })
   } catch (error) {
-    if (cleanupError) {
-      throw new AggregateError([cleanupError, error], 'Failed to stop Discovery')
-    }
-    throw error
+    cleanupErrors.push(error)
   }
-  if (cleanupError) throw cleanupError
+  if (cleanupErrors.length > 0) {
+    throw new AggregateError(cleanupErrors, 'Failed to stop Discovery')
+  }
 }
 
 function asError(error: unknown): Error {

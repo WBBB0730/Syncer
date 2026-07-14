@@ -6,10 +6,12 @@ import {
   SUBNET_PROBE_MAX_HOSTS,
   SUBNET_PROBE_TIMEOUT_MS,
   isIpv4Address,
+  isIpv4InSubnet,
   mapPool,
   subnetBroadcastAddress,
   subnetHosts,
-  subnetHostsForNetworks
+  subnetHostsForNetworks,
+  subnetsWithoutAddresses
 } from '@syncer/protocol'
 
 test('single-target Presence handshake has a larger budget than subnet probing', () => {
@@ -76,6 +78,39 @@ test('subnetBroadcastAddress follows non-/24 masks', () => {
   assert.equal(subnetBroadcastAddress('192.168.1.4', '255.255.254.0'), '192.168.1.255')
   assert.equal(subnetBroadcastAddress('192.168.1.4', '255.0.255.0'), null)
   assert.equal(subnetBroadcastAddress('192.168.1.4', '255.255.255.255'), null)
+})
+
+test('subnetsWithoutAddresses keeps unrepresented interfaces in a multi-NIC topology', () => {
+  const networks = [
+    { address: '172.16.33.84', netmask: '255.255.255.0' },
+    { address: '192.168.13.1', netmask: '255.255.255.0' },
+    { address: '192.168.116.1', netmask: '255.255.255.0' },
+    { address: '192.168.137.1', netmask: '255.255.255.0' },
+    { address: '172.27.16.1', netmask: '255.255.240.0' }
+  ]
+
+  assert.equal(isIpv4InSubnet('192.168.137.83', networks[3]), true)
+  assert.equal(isIpv4InSubnet('192.168.116.83', networks[3]), false)
+
+  const missing = subnetsWithoutAddresses(networks, ['172.16.33.20'])
+  assert.deepEqual(missing, networks.slice(1))
+  assert.equal(
+    subnetHostsForNetworks(missing, SUBNET_PROBE_MAX_HOSTS).includes('192.168.137.83'),
+    true
+  )
+})
+
+test('subnetsWithoutAddresses de-duplicates aliases of the same subnet', () => {
+  assert.deepEqual(
+    subnetsWithoutAddresses(
+      [
+        { address: '192.168.1.10', netmask: '255.255.255.0' },
+        { address: '192.168.1.11', netmask: '255.255.255.0' }
+      ],
+      []
+    ),
+    [{ address: '192.168.1.10', netmask: '255.255.255.0' }]
+  )
 })
 
 test('mapPool stops dispatching work after cancellation', async () => {

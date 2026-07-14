@@ -13,6 +13,7 @@ import { computed, h, onMounted, onUnmounted, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
 import { DesktopOutlined, MobileOutlined, QuestionOutlined } from '@ant-design/icons-vue'
 import type {
+  ConnectionAttemptFailedPayload,
   LegacyLocalStorageValues,
   ReceivedFileBatch,
   SaveFilesResult
@@ -29,6 +30,19 @@ const openReceiptIds = new Set<string>()
 const fileModals = new Map<string, ReturnType<typeof Modal.confirm>>()
 let connectionRequestModal: ReturnType<typeof Modal.confirm> | null = null
 let shownConnectionRequestId: string | null = null
+
+function connectionFailureContent({ name, reason }: ConnectionAttemptFailedPayload): string {
+  switch (reason) {
+    case 'timeout':
+      return `${name} 响应超时，请确认双方网络正常后重试`
+    case 'busy':
+      return `${name} 当前正忙，请稍后重试`
+    case 'protocol-error':
+      return `与 ${name} 的协议握手失败，请确认双方版本一致`
+    case 'unreachable':
+      return `无法连接到 ${name}，请检查局域网和防火墙设置`
+  }
+}
 
 const route = computed(() => (store.status === 'connected' ? Send : Connection))
 
@@ -228,6 +242,18 @@ onMounted(async () => {
         icon: null,
         title: '连接失败',
         content: `${name} 拒绝了你的连接请求`,
+        okText: '确定'
+      })
+    })
+  )
+
+  unsubscribers.push(
+    window.api.onConnectionAttemptFailed((payload) => {
+      Modal.info({
+        centered: true,
+        icon: null,
+        title: '连接失败',
+        content: connectionFailureContent(payload),
         okText: '确定'
       })
     })

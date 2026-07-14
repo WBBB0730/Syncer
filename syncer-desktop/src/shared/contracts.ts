@@ -1,16 +1,19 @@
 import type {
   AvailableDevice,
   CommandKey,
+  ConnectionFailureReason,
   ConnectionRequest,
   FileMetadata,
   SessionStatus
 } from '@syncer/protocol'
 
 export const WHITELIST_SESSION_ACCEPTED_CHANNEL = 'syncer:whitelist-session-accepted'
+export const CONNECTION_ATTEMPT_FAILED_CHANNEL = 'syncer:connection-attempt-failed'
 
 export type {
   AvailableDevice,
   CommandKey,
+  ConnectionFailureReason,
   ConnectionRequest,
   FileMetadata,
   SessionStatus
@@ -79,6 +82,12 @@ export interface ConnectionRefusedPayload {
   name: string
 }
 
+export interface ConnectionAttemptFailedPayload {
+  uuid: string
+  name: string
+  reason: ConnectionFailureReason
+}
+
 export interface WhitelistSessionAcceptedPayload {
   name: string
 }
@@ -112,6 +121,9 @@ export interface SyncerAPI {
     callback: (payload: WhitelistSessionAcceptedPayload) => void
   ) => () => void
   onConnectionRefused: (callback: (payload: ConnectionRefusedPayload) => void) => () => void
+  onConnectionAttemptFailed: (
+    callback: (payload: ConnectionAttemptFailedPayload) => void
+  ) => () => void
   onTextReceived: (callback: (payload: { content: string }) => void) => () => void
   onFileReceived: (callback: (payload: ReceivedFileBatch) => void) => () => void
   onConnectionLost: (callback: () => void) => () => void

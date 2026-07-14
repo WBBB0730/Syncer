@@ -1,4 +1,10 @@
-import type { CommandKey, SelectedFile } from '../../shared/contracts'
+import {
+  CONNECTION_ATTEMPT_FAILED_CHANNEL,
+  type CommandKey,
+  type ConnectionAttemptFailedPayload,
+  type ConnectionRefusedPayload,
+  type SelectedFile
+} from '../../shared/contracts'
 import { appState } from '../state'
 import { refreshPresenceAnnounce, searchDevices } from './discovery'
 import { emit } from './emit'
@@ -62,6 +68,18 @@ export async function requestSession(deviceUuid: string): Promise<void> {
   appState.transitionSession('settle-available')
   refreshPresenceAnnounce()
   emitState()
+
+  if (result === 'refused') {
+    const payload: ConnectionRefusedPayload = { uuid: device.uuid, name: device.name }
+    emit('syncer:connection-refused', payload)
+  } else if (result !== 'cancelled') {
+    const payload: ConnectionAttemptFailedPayload = {
+      uuid: device.uuid,
+      name: device.name,
+      reason: result
+    }
+    emit(CONNECTION_ATTEMPT_FAILED_CHANNEL, payload)
+  }
 }
 
 export async function cancelConnectionRequest(): Promise<void> {

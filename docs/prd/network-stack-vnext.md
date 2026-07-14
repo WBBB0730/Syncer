@@ -4,7 +4,7 @@
 
 ## Problem Statement
 
-同一 Wi-Fi 下经常 Discovery 不到 Device；TCP 用 `^` 分帧与 Base64 塞文件既脆又难传大文件。根因是「点一下才广播 + 发起方临时开 server」的旧模型，而不是缺几个补丁。
+同一 Wi-Fi 下经常 Discovery 不到 Device，多网卡环境还会把查询发到错误接口或因另一个网段已有结果而跳过目标网段；TCP 用 `^` 分帧与 Base64 塞文件既脆又难传大文件。根因是「点一下才广播 + 发起方临时开 server」的旧模型，而不是缺几个补丁。
 
 ## Solution
 
@@ -12,6 +12,8 @@
 
 - **Presence**：`available` 时常驻 TCP 门 + 常驻 UDP discovery 监听（可应答查询）；可选低频主动宣告仅作加速
 - **Discovery**：主路径为查找方携带本次 `queryId` 的 UDP 查询、对端回显同一 `queryId` 并单播回复 TCP 地址；仅匹配当前查询的应答进入结果；辅以低频宣告与网段 TCP 探测；对用户仍是一次「查找」
+- **多网卡**：桌面端在每个活动 IPv4 接口上加入并发送组播，同时发送各子网定向广播；每个没有 Discovery 结果覆盖的子网独立进入有限 TCP 探测
+- **多路径**：同一 Device UUID 的多个 Device Endpoint 合并到一个 Available Device；发起方在发送 Connection Request 前逐个验证，发送后不再换路重试
 - **信任边界**：UDP 只产生 Available Device 候选；身份与是否接受连接在 TCP / Session 握手中确认
 - **Connection Request**：发起方拨号敲对方已在听的门；接受或 Whitelist 后升级为 **Session**（禁止收到发现后再临时开 TCP server）
 - **Session**：文本 / File Transfer / Command / Find Device 同通道；应用层心跳按未应答调度次数判定，不把休眠或调度停顿直接当作连续超时；主动断开等待有明确上限
@@ -24,6 +26,9 @@
 
 - 作为用户，我点「查找」后，同一局域网内其他 Syncer 设备应较快出现在 Available Device 列表（不依赖等待对方下一次周期广播）。
 - 作为用户，我点连接后仍先经 Connection Request（或 Whitelist），再进入可收发的 Session。
+- 作为用户，我的电脑同时启用以太网、热点和虚拟网卡时，一个网卡上的结果不会阻止 Syncer 查找另一个网卡上的 Device。
+- 作为用户，目标 Device 的一个地址不可达但另一个 Device Endpoint 可达时，Syncer 会自动尝试可达路径，且对端只收到一次 Connection Request。
+- 作为用户，Connection Request 超时、目标不可达、对端忙或协议不匹配时，我会看到明确原因，而不是永久等待。
 - 作为用户，Session 意外断开时我会得到明确提示，并立即回到可被发现和重新连接的状态。
 - 作为用户，我在 Session 内仍能发送文本、文件、Command、Find Device，且文件不会因整包 Base64 或整文件内存副本而占用成倍内存。
 - 作为用户，我已与一台设备建立 Session 时，其他设备的 Discovery 不应再找到我。
@@ -33,6 +38,8 @@
 - 领域与握手模型见 ADR-0004；线协议见 ADR-0005；术语见 `CONTEXT.md`。
 - Discovery 时序：A 以新 UUID `queryId` 主动 UDP 查询 → B 在非 announce `hello` 中回显该 `queryId` 并单播回复 → A 仅接受当前查询的回复并拨号 B 的常驻 TCP；B 的低频 announce 是不携带 `queryId` 的独立变体。
 - 手动 IP 不经过 UDP 轮询或网段扫描，直接 TCP 探测该地址；常规网段探测使用系统报告的真实 IPv4 子网掩码、子网定向广播与共享的有限探测预算。
+- 桌面 UDP socket 按每个活动 LAN IPv4 地址维护组播成员关系，并串行切换组播出口；网络接口变化会在下一次查询或 announce 时刷新。
+- Available Device 按 Device UUID 聚合有限数量的 Device Endpoint。拨号只在 TCP hello 前失败时切换下一路径；Connection Request 已发送或可能已发送后不再切换，避免重复请求。
 - 保留长连接 Session；不采用 Socket.IO 作主通道；不采用 LocalSend 纯 HTTP 传完即散模型。
 - 自定义 UDP discovery 为默认；mDNS/DNS-SD 不作为必选主路径（可作后续桌面增强）。
 - File Transfer 留在 Session 内，采用长度前缀下的二进制分块与磁盘暂存，不另开 HTTP 旁路；资源与失败清理规则见 ADR-0006。
@@ -53,6 +60,9 @@
 - 稳定性：杀进程、关闭 Wi-Fi 或心跳超时造成 Session 中断后，应立即回到 `available` 并明确提示连接中断；覆盖调度停顿不会伪造超时，以及主动断开在 transport 不可写时仍能有界完成。
 - Discovery：覆盖「查询-单播应答」主路径及 `queryId` 关联，拒绝上一次或无关查询的延迟回复；覆盖「组播弱、需网段探测」类环境；验证关闭周期 announce 时主动查询仍能找到设备。
 - 桌面启动与恢复：验证 TCP/UDP 任一绑定失败会完整回滚且不展示可用主界面；异常关闭触发可取消的有界指数退避并最终恢复；监听重启不破坏已转移给 Session 的 socket；手动 IP 会直接 TCP 探测；渲染器重载可恢复且不会重复展示待处理文件。
+- 多网卡：用包含以太网、Windows 热点和虚拟网卡的拓扑验证逐接口组播、定向广播、未覆盖子网探测及同一 Device UUID 的 Device Endpoint 合并；验证一个网段已有结果不会抑制其他网段。
+- 连接失败：验证首个 Device Endpoint 不可达时会回退到下一路径，TCP 身份不匹配不会建立 Session，Connection Request 一旦发送便不再换路；超时、不可达、忙碌、拒绝和协议错误都结束等待并给出对应反馈。
+- 单实例：Windows 打包产物连续启动两次时，第二个进程应退出并把控制权交给仍在运行的主实例，不能产生第二套 Presence/Discovery 监听与托盘。
 - 文件：覆盖多分块与多文件，按声明大小验证接收字节、跨批次暂存预算、背压、断线/拒绝清理与部分发布重试，并以接收端最终字节内容而非“已发送”日志作为断言。
 - Android：在支持下限 Android 10 / API 29 上覆盖 MediaStore `IS_PENDING` 一键保存、UTF-8 重名、精确字节数、部分成功、owned pending row 清理与历史 reopening；不保留 Android 9 文件系统路径。
 - CI 先安装、typecheck、测试并构建共享协议，再验证桌面 lint/typecheck/build，并在 Windows 运行桌面存储适配器与网络测试；Linux 从 CNG 配置生成最低 API 29 的 Android 工程后运行移动端协调器与 Metro bundle、本地存储模块测试、Lint、Release AAR、完整 debug 应用构建及 Android 10 模拟器上的 MediaStore 集成测试；macOS 26 + Xcode 26.4 运行 iOS 存储核心 Swift 测试并从独立 CNG 输出完成最低 iOS 16.4 的无签名 Simulator 构建；真机网络与 iOS multicast entitlement 仍由带正确签名配置的设备联调补充。

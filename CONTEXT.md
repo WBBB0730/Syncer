@@ -26,6 +26,9 @@ _Avoid_: 配对、蓝牙发现、连接
 **Available Device**：经 Discovery 得到、尚未与本机建立 Session 的候选 Device；它不是可信关系，也不是已连接状态。
 _Avoid_: 在线设备、好友、联系人
 
+**Device Endpoint**：Available Device 可用于 TCP 拨号的一组 IPv4 地址与端口；一个 Available Device 至少有一个、也可有多个 Device Endpoint。
+_Avoid_: 连接地址、主 IP
+
 **Connection Request**：一台 Device 向另一台 Device 提出的建立 Session 的请求。
 _Avoid_: 邀请、配对请求、Session
 
@@ -66,6 +69,10 @@ _Avoid_: 寻机、响铃模式、定位（GPS）
 **Dev**：Discovery 找到的 Device 已经和我连接了吗？
 
 **Expert**：没有。它只是 Available Device；双方接受 Connection Request 后才形成 Session。
+
+**Dev**：同一个 Available Device 为什么会显示多个地址？
+
+**Expert**：一台 Device 可能通过多个网卡被发现，因此会有多个 Device Endpoint；它们仍属于同一个 Device UUID。
 
 **Dev**：Presence 和 Session 有什么区别？
 

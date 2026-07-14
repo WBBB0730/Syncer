@@ -7,7 +7,10 @@ import {
   MAX_PENDING_HANDSHAKES,
   PROTOCOL_VERSION,
   TCP_PORT,
+  isIpv4Address,
   type AvailableDevice,
+  type ConnectionAttemptResult,
+  type DeviceEndpoint,
   type DeviceIdentity,
   type TcpHandshakeMessage
 } from '@syncer/protocol'
@@ -27,8 +30,12 @@ type AttachSession = (
   options: { inbound: boolean }
 ) => void
 
-type DialResult = 'accepted' | 'refused' | 'aborted' | 'error'
 type PresenceFailureHandler = (error: Error) => void
+
+interface EndpointDialResult {
+  readonly result: ConnectionAttemptResult
+  readonly connectionRequestSent: boolean
+}
 
 let attachSession: AttachSession | null = null
 let presenceFailureHandler: PresenceFailureHandler | null = null
@@ -173,12 +180,17 @@ async function handleInboundConnectionRequest(
     return
   }
 
+  const address = rawSocket.remoteAddress?.replace(/^::ffff:/, '') ?? ''
+  if (!isIpv4Address(address)) {
+    await refuse(socket, 'protocol-error')
+    return
+  }
+
   const device: AvailableDevice = {
     uuid: request.uuid,
     name: request.name,
     device: request.device,
-    port: TCP_PORT,
-    address: rawSocket.remoteAddress?.replace(/^::ffff:/, '') ?? ''
+    endpoints: [{ port: TCP_PORT, address }]
   }
 
   if (appState.status !== 'available' || pendingSocket || sessionUpgradeInProgress) {
@@ -362,107 +374,144 @@ export function probePresence(
   })
 }
 
-export function dialAndConnect(
+export async function dialAndConnect(
   device: AvailableDevice,
   options: { signal?: AbortSignal } = {}
-): Promise<DialResult> {
+): Promise<ConnectionAttemptResult> {
+  let lastResult: ConnectionAttemptResult = 'unreachable'
+  for (const endpoint of device.endpoints) {
+    if (options.signal?.aborted) return 'cancelled'
+    const attempt = await dialEndpoint(device, endpoint, options)
+    lastResult = attempt.result
+    if (
+      attempt.connectionRequestSent ||
+      attempt.result === 'accepted' ||
+      attempt.result === 'refused' ||
+      attempt.result === 'cancelled'
+    ) {
+      return attempt.result
+    }
+  }
+  return lastResult
+}
+
+function dialEndpoint(
+  device: AvailableDevice,
+  endpoint: DeviceEndpoint,
+  options: { signal?: AbortSignal }
+): Promise<EndpointDialResult> {
   return new Promise((resolve) => {
     const rawSocket = new net.Socket()
     const socket = createFramedSocket(rawSocket)
     let phase: 'hello' | 'decision' = 'hello'
     let tcpDevice: AvailableDevice | null = null
     let settled = false
+    let connectionRequestSent = false
 
     const cleanup = (): void => {
       clearTimeout(timer)
       options.signal?.removeEventListener('abort', onAbort)
     }
-    const finish = (result: DialResult, destroy = true): void => {
+    const finish = (result: ConnectionAttemptResult, destroy = true): void => {
       if (settled) return
       settled = true
       cleanup()
       if (destroy) socket.destroy()
-      resolve(result)
+      resolve({ result, connectionRequestSent })
     }
-    const onAbort = (): void => finish('aborted')
-    let timer = setTimeout(() => finish('error'), HANDSHAKE_TIMEOUT_MS)
+    const onAbort = (): void => finish('cancelled')
+    let timer = setTimeout(() => finish('timeout'), HANDSHAKE_TIMEOUT_MS)
 
     if (options.signal?.aborted) {
-      finish('aborted')
+      finish('cancelled')
       return
     }
     options.signal?.addEventListener('abort', onAbort, { once: true })
-    socket.setCloseHandler(() => finish(options.signal?.aborted ? 'aborted' : 'error', false))
-    socket.setErrorHandler(() => finish(options.signal?.aborted ? 'aborted' : 'error'))
+    socket.setCloseHandler(() =>
+      finish(options.signal?.aborted ? 'cancelled' : 'unreachable', false)
+    )
+    socket.setErrorHandler(() => finish(options.signal?.aborted ? 'cancelled' : 'unreachable'))
     socket.transferTo(async (frame) => {
       if (settled || frame.kind !== 'json') {
-        finish('error')
+        finish('protocol-error')
         return
       }
 
       const message = frame.message
       if (phase === 'hello') {
         if (message.type !== 'hello') {
-          finish('error')
+          finish('protocol-error')
           return
         }
         try {
-          tcpDevice = createAvailableDeviceFromTcpIdentity(device, message)
+          tcpDevice = createAvailableDeviceFromTcpIdentity(device, message, endpoint)
         } catch {
-          finish('error')
+          finish('protocol-error')
           return
         }
         phase = 'decision'
-        await socket.sendJson({
-          type: 'connect',
-          v: PROTOCOL_VERSION,
-          uuid: appState.uuid,
-          targetUuid: device.uuid,
-          name: appState.name,
-          device: DEVICE_TYPE
-        })
+        connectionRequestSent = true
+        try {
+          await socket.sendJson({
+            type: 'connect',
+            v: PROTOCOL_VERSION,
+            uuid: appState.uuid,
+            targetUuid: device.uuid,
+            name: appState.name,
+            device: DEVICE_TYPE
+          })
+        } catch {
+          finish('unreachable')
+          return
+        }
         if (!settled) {
           clearTimeout(timer)
-          timer = setTimeout(() => finish('error'), CONNECTION_REQUEST_TIMEOUT_MS)
+          timer = setTimeout(() => finish('timeout'), CONNECTION_REQUEST_TIMEOUT_MS)
         }
         return
       }
 
       if (!tcpDevice) {
-        finish('error')
+        finish('protocol-error')
         return
       }
       if (message.type === 'accept' && message.uuid === tcpDevice.uuid && attachSession) {
         if (options.signal?.aborted) {
-          finish('aborted')
+          finish('cancelled')
           return
         }
         settled = true
         cleanup()
         try {
           attachSession(socket, tcpDevice, { inbound: false })
-          resolve('accepted')
+          resolve({ result: 'accepted', connectionRequestSent })
         } catch (error) {
           socket.destroy()
           console.error('Failed to attach an accepted Session', error)
-          resolve('error')
+          resolve({ result: 'protocol-error', connectionRequestSent })
         }
         return
       }
       if (message.type === 'refuse' && message.uuid === tcpDevice.uuid) {
-        emit('syncer:connection-refused', {
-          uuid: message.uuid,
-          name: tcpDevice.name
-        })
-        finish('refused')
+        finish(
+          message.reason === 'rejected'
+            ? 'refused'
+            : message.reason === 'busy'
+              ? 'busy'
+              : 'protocol-error'
+        )
         return
       }
-      finish('error')
+      finish('protocol-error')
     })
 
-    rawSocket.connect(device.port || TCP_PORT, device.address, () => {
-      void socket.sendJson(localHello()).catch(() => finish('error'))
-    })
+    try {
+      rawSocket.connect(endpoint.port || TCP_PORT, endpoint.address, () => {
+        void socket.sendJson(localHello()).catch(() => finish('unreachable'))
+      })
+    } catch {
+      finish('unreachable')
+    }
   })
 }
 

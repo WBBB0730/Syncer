@@ -4,17 +4,18 @@ import test from 'node:test'
 import {
   AVAILABLE_DEVICE_TTL_MS,
   MAX_AVAILABLE_DEVICES,
+  MAX_DEVICE_ENDPOINTS,
+  mergeAvailableDevice,
   pruneAvailableDevices,
   upsertAvailableDevices
 } from '../dist/esm/index.js'
 
-function device(index, name = `Device ${index}`) {
+function device(index, name = `Device ${index}`, address = `192.168.1.${index + 1}`) {
   return {
     uuid: `device-${index}`,
     name,
     device: 'mobile',
-    port: 53317,
-    address: `192.168.1.${index + 1}`
+    endpoints: [{ port: 53317, address }]
   }
 }
 
@@ -57,4 +58,35 @@ test('Available Device expiry keeps entries through the exact TTL boundary', () 
     true
   )
   assert.deepEqual([...availableDevices.keys()], ['device-1'])
+})
+
+test('Available Device merges distinct Device Endpoints without duplicating a path', () => {
+  const current = device(0, 'Old Name', '192.168.1.20')
+  const incoming = device(0, 'Current Name', '192.168.137.20')
+
+  assert.deepEqual(mergeAvailableDevice(current, incoming), {
+    uuid: 'device-0',
+    name: 'Current Name',
+    device: 'mobile',
+    endpoints: [
+      { address: '192.168.1.20', port: 53317 },
+      { address: '192.168.137.20', port: 53317 }
+    ]
+  })
+  assert.deepEqual(mergeAvailableDevice(current, current).endpoints, current.endpoints)
+})
+
+test('Available Device bounds retained Device Endpoints', () => {
+  const endpoints = Array.from({ length: MAX_DEVICE_ENDPOINTS + 2 }, (_, index) => ({
+    address: `10.0.0.${index + 1}`,
+    port: 53317
+  }))
+  const merged = mergeAvailableDevice(undefined, {
+    ...device(0),
+    endpoints
+  })
+
+  assert.equal(merged.endpoints.length, MAX_DEVICE_ENDPOINTS)
+  assert.deepEqual(merged.endpoints, endpoints.slice(0, MAX_DEVICE_ENDPOINTS))
+  assert.throws(() => mergeAvailableDevice(undefined, { ...device(0), endpoints: [] }))
 })

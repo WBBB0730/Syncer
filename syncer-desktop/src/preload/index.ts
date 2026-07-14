@@ -1,8 +1,10 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import {
+  CONNECTION_ATTEMPT_FAILED_CHANNEL,
   WHITELIST_SESSION_ACCEPTED_CHANNEL,
   type AppSnapshot,
   type CommandKey,
+  type ConnectionAttemptFailedPayload,
   type ConnectionRefusedPayload,
   type LegacyLocalStorageValues,
   type ReceiveHistoryItem,
@@ -73,6 +75,9 @@ const api: SyncerAPI = {
   ): (() => void) => subscribe(WHITELIST_SESSION_ACCEPTED_CHANNEL, callback),
   onConnectionRefused: (callback: (payload: ConnectionRefusedPayload) => void): (() => void) =>
     subscribe('syncer:connection-refused', callback),
+  onConnectionAttemptFailed: (
+    callback: (payload: ConnectionAttemptFailedPayload) => void
+  ): (() => void) => subscribe(CONNECTION_ATTEMPT_FAILED_CHANNEL, callback),
   onTextReceived: (callback: (payload: { content: string }) => void): (() => void) =>
     subscribe('syncer:text-received', callback),
   onFileReceived: (callback: (payload: ReceivedFileBatch) => void): (() => void) =>

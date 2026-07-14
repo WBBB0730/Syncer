@@ -252,3 +252,53 @@ jobs:
             }
             Remove-Item -LiteralPath $userData -Recurse -Force
           }
+
+          Remove-Item Env:SYNCER_STARTUP_SMOKE
+          $singleInstanceUserData = [IO.Path]::GetFullPath((Join-Path $runnerTemp 'syncer-single-instance-smoke'))
+          if (-not $singleInstanceUserData.StartsWith($runnerTemp + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Unsafe single-instance smoke directory: $singleInstanceUserData"
+          }
+          New-Item -ItemType Directory -Path $singleInstanceUserData | Out-Null
+          $primary = $null
+          $secondary = $null
+          try {
+            $arguments = "--user-data-dir=$singleInstanceUserData"
+            $primary = Start-Process -FilePath 'dist\win-unpacked\Syncer.exe' -ArgumentList $arguments -PassThru -WindowStyle Hidden
+            $deadline = [DateTime]::UtcNow.AddSeconds(30)
+            $presenceReady = $false
+            do {
+              Start-Sleep -Milliseconds 100
+              $primary.Refresh()
+              if ($primary.HasExited) {
+                throw "Primary packaged Syncer exited with code $($primary.ExitCode)"
+              }
+              $presenceReady = @(
+                Get-NetTCPConnection -State Listen -LocalPort 5743 -ErrorAction SilentlyContinue |
+                  Where-Object { $_.OwningProcess -eq $primary.Id }
+              ).Count -gt 0
+            } while (-not $presenceReady -and [DateTime]::UtcNow -lt $deadline)
+            if (-not $presenceReady) {
+              throw 'Primary packaged Syncer did not start Presence in time'
+            }
+
+            $secondary = Start-Process -FilePath 'dist\win-unpacked\Syncer.exe' -ArgumentList $arguments -PassThru -WindowStyle Hidden
+            if (-not $secondary.WaitForExit(15000)) {
+              throw 'Secondary packaged Syncer did not yield to the primary instance'
+            }
+            if ($secondary.ExitCode -ne 0) {
+              throw "Secondary packaged Syncer failed with exit code $($secondary.ExitCode)"
+            }
+            $primary.Refresh()
+            if ($primary.HasExited) {
+              throw 'Primary packaged Syncer exited after the second launch'
+            }
+          } finally {
+            if ($secondary -and -not $secondary.HasExited) {
+              Stop-Process -Id $secondary.Id -Force
+            }
+            if ($primary -and -not $primary.HasExited) {
+              Stop-Process -Id $primary.Id -Force
+              Wait-Process -Id $primary.Id -ErrorAction SilentlyContinue
+            }
+            Remove-Item -LiteralPath $singleInstanceUserData -Recurse -Force
+          }

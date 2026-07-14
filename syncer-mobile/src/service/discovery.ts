@@ -21,9 +21,11 @@ import {
   isIpv4Address,
   isRelevantDiscoveryHello,
   mapPool,
+  mergeAvailableDevice,
   parseUdpMessage,
   subnetBroadcastAddress,
   subnetHostsForNetworks,
+  subnetsWithoutAddresses,
   type AvailableDevice,
   type UdpDiscover,
   type UdpHello,
@@ -86,8 +88,7 @@ function toAvailableDevice(hello: UdpHello, address: string): AvailableDevice {
     uuid: hello.uuid,
     name: hello.name,
     device: hello.device,
-    port: hello.tcpPort,
-    address,
+    endpoints: [{ port: hello.tcpPort, address }],
   };
 }
 
@@ -100,13 +101,14 @@ function remember(device: AvailableDevice, deduplicationKey = device.uuid): void
   ) {
     return;
   }
+  const merged = mergeAvailableDevice(pendingCandidates.get(device.uuid), device);
   if (pendingCandidates.has(device.uuid)) pendingCandidates.delete(device.uuid);
   while (pendingCandidates.size >= MAX_AVAILABLE_DEVICES) {
     const oldest = pendingCandidates.keys().next().value as string | undefined;
     if (!oldest) break;
     pendingCandidates.delete(oldest);
   }
-  pendingCandidates.set(device.uuid, device);
+  pendingCandidates.set(device.uuid, merged);
   if (!candidateFlushTimer) {
     candidateFlushTimer = setTimeout(flushCandidates, DISCOVERY_UI_FLUSH_MS);
   }
@@ -265,7 +267,9 @@ export function startDiscovery(): Promise<void> {
         } else if (isRelevantDiscoveryHello(data, activeSearch?.queryId)) {
           remember(
             toAvailableDevice(data, remote.address),
-            data.announce ? data.uuid : `${data.queryId}:${data.uuid}`,
+            data.announce
+              ? `${data.uuid}@${remote.address}`
+              : `${data.queryId}:${data.uuid}@${remote.address}`,
           );
         }
       },
@@ -365,7 +369,9 @@ export async function discoverDevices(
         signal: controller.signal,
       });
       if (isActiveSearch(controller) && identity && identity.uuid !== store.uuid) {
-        store.addAvailableDevices([{ ...identity, port: TCP_PORT, address: manualIp }]);
+        store.addAvailableDevices([
+          { ...identity, endpoints: [{ port: TCP_PORT, address: manualIp }] },
+        ]);
       }
       return;
     }
@@ -388,9 +394,11 @@ export async function discoverDevices(
 
     if (!isActiveSearch(controller)) return;
     flushCandidates();
-    if (store.availableDeviceMap.size > 0) return;
-
-    const hosts = subnetHostsForNetworks(network ? [network] : [], SUBNET_PROBE_MAX_HOSTS);
+    const discoveredAddresses = [...store.availableDeviceMap.values()].flatMap((device) =>
+      device.endpoints.map(({ address }) => address),
+    );
+    const probeNetworks = subnetsWithoutAddresses(network ? [network] : [], discoveredAddresses);
+    const hosts = subnetHostsForNetworks(probeNetworks, SUBNET_PROBE_MAX_HOSTS);
     if (hosts.length === 0) return;
 
     await mapPool(
@@ -403,8 +411,8 @@ export async function discoverDevices(
         });
         if (!isActiveSearch(controller) || !identity || identity.uuid === store.uuid) return null;
         remember(
-          { ...identity, port: TCP_PORT, address: host },
-          `${search.queryId}:${identity.uuid}`,
+          { ...identity, endpoints: [{ port: TCP_PORT, address: host }] },
+          `${search.queryId}:${identity.uuid}@${host}`,
         );
         return identity.uuid;
       },

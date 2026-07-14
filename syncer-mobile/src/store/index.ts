@@ -6,6 +6,7 @@ import {
   upsertAvailableDevices,
   type AvailableDevice,
   type CommandKey,
+  type ConnectionAttemptResult,
   type SessionLifecycleEvent,
   type SessionStatus,
 } from '@syncer/protocol';
@@ -22,6 +23,25 @@ import {
   type SelectedFile,
 } from '../service/session';
 import { randomNumber } from '../utils/random';
+import { FeedbackDuration, showFeedback } from '../utils/feedback';
+
+function connectionFailureMessage(
+  result: Exclude<ConnectionAttemptResult, 'accepted' | 'cancelled'>,
+  deviceName: string,
+): string {
+  switch (result) {
+    case 'refused':
+      return `${deviceName} 拒绝了你的连接请求`;
+    case 'timeout':
+      return `${deviceName} 响应超时，请确认双方网络正常后重试`;
+    case 'busy':
+      return `${deviceName} 当前正忙，请稍后重试`;
+    case 'protocol-error':
+      return `与 ${deviceName} 的协议握手失败，请确认双方版本一致`;
+    case 'unreachable':
+      return `无法连接到 ${deviceName}，请检查局域网和防火墙设置`;
+  }
+}
 
 class Store {
   uuid = '';
@@ -105,7 +125,7 @@ class Store {
     this.setTarget(device);
     this.transitionSession('start-connection');
 
-    let result: Awaited<ReturnType<typeof dialAndConnect>> = 'error';
+    let result: Awaited<ReturnType<typeof dialAndConnect>> = 'unreachable';
     try {
       result = await dialAndConnect(device, { signal: controller.signal });
     } catch (error) {
@@ -117,6 +137,9 @@ class Store {
     if (result !== 'accepted') {
       this.setTarget(null);
       this.transitionSession('settle-available');
+      if (result !== 'cancelled') {
+        showFeedback(connectionFailureMessage(result, device.name), FeedbackDuration.LONG);
+      }
     }
   }
 

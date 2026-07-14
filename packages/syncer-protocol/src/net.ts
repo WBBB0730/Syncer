@@ -38,9 +38,7 @@ export function subnetHostsForNetworks(
   maxHosts: number
 ): string[] {
   assertHostLimit(maxHosts)
-  const candidates = networks.map(({ address, netmask }) =>
-    subnetHosts(address, netmask, maxHosts)
-  )
+  const candidates = networks.map(({ address, netmask }) => subnetHosts(address, netmask, maxHosts))
   const hosts = new Set<string>()
   for (let index = 0; hosts.size < maxHosts; index += 1) {
     let hasCandidate = false
@@ -66,6 +64,44 @@ export function subnetBroadcastAddress(address: string, netmask: string): string
   const network = (addressValue & netmaskValue) >>> 0
   const broadcast = (network | ~netmaskValue) >>> 0
   return broadcast - network > 1 ? formatIpv4(broadcast) : null
+}
+
+export function isIpv4InSubnet(address: string, subnet: Ipv4Subnet): boolean {
+  const addressValue = parseIpv4(address)
+  const localAddressValue = parseIpv4(subnet.address)
+  const netmaskValue = parseIpv4(subnet.netmask)
+  if (
+    addressValue == null ||
+    localAddressValue == null ||
+    netmaskValue == null ||
+    !isContiguousNetmask(netmaskValue)
+  ) {
+    return false
+  }
+  return (addressValue & netmaskValue) === (localAddressValue & netmaskValue)
+}
+
+/** Return each valid local subnet that has no known remote address, de-duplicated by CIDR. */
+export function subnetsWithoutAddresses(
+  networks: readonly Ipv4Subnet[],
+  addresses: readonly string[]
+): Ipv4Subnet[] {
+  const results: Ipv4Subnet[] = []
+  const seen = new Set<string>()
+
+  for (const network of networks) {
+    const addressValue = parseIpv4(network.address)
+    const netmaskValue = parseIpv4(network.netmask)
+    if (addressValue == null || netmaskValue == null || !isContiguousNetmask(netmaskValue)) {
+      continue
+    }
+    const key = `${(addressValue & netmaskValue) >>> 0}/${netmaskValue}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    if (addresses.some((address) => isIpv4InSubnet(address, network))) continue
+    results.push(network)
+  }
+  return results
 }
 
 function parseIpv4(value: string): number | null {

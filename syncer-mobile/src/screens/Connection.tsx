@@ -221,7 +221,9 @@ const AvailableDevices = observer(() => {
             <Text numberOfLines={1} ellipsizeMode="tail" style={styles.availableDeviceName}>
               {device.name}
             </Text>
-            <Text style={styles.availableDeviceAddress}>{device.address}</Text>
+            <Text style={styles.availableDeviceAddress} numberOfLines={1} ellipsizeMode="tail">
+              {device.endpoints.map(({ address }) => address).join(' / ')}
+            </Text>
           </View>
           <Button
             buttonStyle={styles.connectButton}

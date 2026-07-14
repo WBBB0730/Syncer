@@ -310,32 +310,42 @@ async function runIntegration(): Promise<void> {
       }
     }
 
-    presence.bindSessionAttacher((socket, device, options) => {
-      attachCount += 1
-      assert.equal(options.inbound, true)
-      assert.equal(device.uuid, trustedPeer.uuid)
-      sessionService.attachSessionSocket(socket, device, sessionRuntime)
-      serverAttached.resolve()
-    })
-
     const delayedProbeSockets = new Set<FramedSocket>()
+    let outgoingConnectionRequests = 0
     const delayedPresenceServer = net.createServer((rawSocket) => {
       const socket = createFramedSocket(rawSocket)
+      let helloSent = false
       delayedProbeSockets.add(socket)
       socket.setCloseHandler(() => delayedProbeSockets.delete(socket))
       socket.setErrorHandler(() => undefined)
       socket.transferTo(async (frame) => {
-        if (frame.kind !== 'json' || frame.message.type !== 'hello') {
-          throw new Error('Manual Presence probe sent an invalid handshake')
+        if (frame.kind !== 'json') throw new Error('Presence test received a binary handshake')
+        if (frame.message.type === 'hello' && !helloSent) {
+          await delay(SUBNET_PROBE_TIMEOUT_MS + 100)
+          if (!socket.destroyed) {
+            helloSent = true
+            await socket.sendJson({
+              type: 'hello',
+              v: PROTOCOL_VERSION,
+              ...trustedPeer
+            })
+          }
+          return
         }
-        await delay(SUBNET_PROBE_TIMEOUT_MS + 100)
-        if (!socket.destroyed) {
+        if (
+          frame.message.type === 'connect' &&
+          helloSent &&
+          frame.message.targetUuid === trustedPeer.uuid
+        ) {
+          outgoingConnectionRequests += 1
           await socket.sendJson({
-            type: 'hello',
+            type: 'accept',
             v: PROTOCOL_VERSION,
-            ...trustedPeer
+            uuid: trustedPeer.uuid
           })
+          return
         }
+        throw new Error('Presence test received an invalid handshake')
       })
     })
     await new Promise<void>((resolve, reject) => {
@@ -348,11 +358,43 @@ async function runIntegration(): Promise<void> {
     })
     try {
       await withTimeout(discoveryService.searchDevices('127.0.0.1'), 'Manual Presence probe')
-      assert.equal(appState.availableDeviceMap.get(trustedPeer.uuid)?.address, '127.0.0.1')
+      assert.equal(
+        appState.availableDeviceMap.get(trustedPeer.uuid)?.endpoints[0]?.address,
+        '127.0.0.1'
+      )
+
+      const outgoingAttached = deferred<void>()
+      presence.bindSessionAttacher((socket, device, options) => {
+        assert.equal(options.inbound, false)
+        assert.equal(device.uuid, trustedPeer.uuid)
+        assert.equal(device.endpoints[0]?.address, '127.0.0.1')
+        socket.destroy()
+        outgoingAttached.resolve()
+      })
+      assert.equal(
+        await presence.dialAndConnect({
+          ...trustedPeer,
+          endpoints: [
+            { address: '127.0.0.2', port: TCP_PORT },
+            { address: '127.0.0.1', port: TCP_PORT }
+          ]
+        }),
+        'accepted'
+      )
+      await withTimeout(outgoingAttached.promise, 'Multi-endpoint outgoing Session')
+      assert.equal(outgoingConnectionRequests, 1)
     } finally {
       for (const socket of delayedProbeSockets) socket.destroy()
       await new Promise<void>((resolve) => delayedPresenceServer.close(() => resolve()))
     }
+
+    presence.bindSessionAttacher((socket, device, options) => {
+      attachCount += 1
+      assert.equal(options.inbound, true)
+      assert.equal(device.uuid, trustedPeer.uuid)
+      sessionService.attachSessionSocket(socket, device, sessionRuntime)
+      serverAttached.resolve()
+    })
 
     await presence.startPresenceServer()
     presenceStarted = true

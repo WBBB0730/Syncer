@@ -64,7 +64,9 @@
         </div>
         <div class="middle">
           <div class="device-name">{{ device.name }}</div>
-          <div class="device-address">{{ device.address }}</div>
+          <div class="device-address">
+            {{ device.endpoints.map(({ address }) => address).join(' / ') }}
+          </div>
         </div>
         <a-button class="right" type="primary" ghost shape="round" @click="requestSession(device)">
           连接

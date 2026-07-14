@@ -1,5 +1,40 @@
-import { AVAILABLE_DEVICE_TTL_MS, MAX_AVAILABLE_DEVICES } from './constants.js'
-import type { AvailableDevice } from './types.js'
+import {
+  AVAILABLE_DEVICE_TTL_MS,
+  MAX_AVAILABLE_DEVICES,
+  MAX_DEVICE_ENDPOINTS
+} from './constants.js'
+import type { AvailableDevice, DeviceEndpoint } from './types.js'
+
+export function mergeAvailableDevice(
+  current: AvailableDevice | undefined,
+  incoming: AvailableDevice
+): AvailableDevice {
+  if (current && current.uuid !== incoming.uuid) {
+    throw new Error('Cannot merge Available Devices with different Device UUIDs')
+  }
+
+  const endpoints = mergeDeviceEndpoints(current?.endpoints ?? [], incoming.endpoints)
+  if (endpoints.length === 0) {
+    throw new Error('Available Device must have at least one Device Endpoint')
+  }
+
+  return {
+    uuid: incoming.uuid,
+    name: incoming.name,
+    device: incoming.device,
+    endpoints
+  }
+}
+
+export function prioritizeDeviceEndpoint(
+  device: AvailableDevice,
+  endpoint: DeviceEndpoint
+): AvailableDevice {
+  return mergeAvailableDevice(undefined, {
+    ...device,
+    endpoints: [endpoint, ...device.endpoints]
+  })
+}
 
 export function upsertAvailableDevices(
   availableDevices: Map<string, AvailableDevice>,
@@ -21,8 +56,9 @@ export function upsertAvailableDevices(
     }
 
     const current = availableDevices.get(device.uuid)
-    if (!current || !sameAvailableDevice(current, device)) {
-      availableDevices.set(device.uuid, device)
+    const merged = mergeAvailableDevice(current, device)
+    if (!current || !sameAvailableDevice(current, merged)) {
+      availableDevices.set(device.uuid, merged)
       visibleChanged = true
     }
     lastSeenAt.set(device.uuid, seenAt)
@@ -78,7 +114,27 @@ function sameAvailableDevice(left: AvailableDevice, right: AvailableDevice): boo
     left.uuid === right.uuid &&
     left.name === right.name &&
     left.device === right.device &&
-    left.port === right.port &&
-    left.address === right.address
+    left.endpoints.length === right.endpoints.length &&
+    left.endpoints.every(
+      (endpoint, index) =>
+        endpoint.address === right.endpoints[index]?.address &&
+        endpoint.port === right.endpoints[index]?.port
+    )
   )
+}
+
+function mergeDeviceEndpoints(
+  preferred: readonly DeviceEndpoint[],
+  fallback: readonly DeviceEndpoint[]
+): DeviceEndpoint[] {
+  const endpoints: DeviceEndpoint[] = []
+  const keys = new Set<string>()
+  for (const endpoint of [...preferred, ...fallback]) {
+    const key = `${endpoint.address}:${endpoint.port}`
+    if (keys.has(key)) continue
+    keys.add(key)
+    endpoints.push(endpoint)
+    if (endpoints.length === MAX_DEVICE_ENDPOINTS) break
+  }
+  return endpoints
 }

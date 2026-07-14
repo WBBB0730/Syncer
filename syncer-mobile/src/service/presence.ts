@@ -6,8 +6,12 @@ import {
   PROTOCOL_VERSION,
   TCP_PORT,
   isHandshakeMessage,
+  isIpv4Address,
+  prioritizeDeviceEndpoint,
   type AvailableDevice,
+  type ConnectionAttemptResult,
   type ConnectionRequest,
+  type DeviceEndpoint,
   type DeviceIdentity,
   type TcpHandshakeMessage,
 } from '@syncer/protocol';
@@ -24,7 +28,6 @@ import { notify } from '../utils/notify';
 
 type TcpSocket = InstanceType<typeof net.Socket>;
 type TcpServer = ReturnType<typeof net.createServer>;
-export type DialResult = 'accepted' | 'refused' | 'error' | 'cancelled';
 export type DialOptions = { signal?: AbortSignal };
 type AttachSession = (
   socket: FramedSocket,
@@ -32,6 +35,11 @@ type AttachSession = (
   options: { inbound: boolean },
 ) => void;
 type PresenceFailureHandler = (error: Error) => void;
+
+type EndpointDialResult = {
+  result: ConnectionAttemptResult;
+  connectionRequestSent: boolean;
+};
 
 type PendingConnection = {
   request: ConnectionRequest;
@@ -249,10 +257,15 @@ async function handleInitialConnect(
     return;
   }
 
+  const address = remoteAddress(rawSocket);
+  if (!isIpv4Address(address)) {
+    await refuse(socket, 'protocol-error');
+    return;
+  }
+
   const device: AvailableDevice = {
     ...hello,
-    port: TCP_PORT,
-    address: remoteAddress(rawSocket),
+    endpoints: [{ port: TCP_PORT, address }],
   };
   const pending: PendingConnection = {
     request: {
@@ -438,98 +451,122 @@ export function probePresence(
   });
 }
 
-export function dialAndConnect(
+export async function dialAndConnect(
   device: AvailableDevice,
   options: DialOptions = {},
-): Promise<DialResult> {
+): Promise<ConnectionAttemptResult> {
+  let lastResult: ConnectionAttemptResult = 'unreachable';
+  for (const endpoint of device.endpoints) {
+    if (options.signal?.aborted) return 'cancelled';
+    const attempt = await dialEndpoint(device, endpoint, options);
+    lastResult = attempt.result;
+    if (
+      attempt.connectionRequestSent ||
+      attempt.result === 'accepted' ||
+      attempt.result === 'refused' ||
+      attempt.result === 'cancelled'
+    ) {
+      return attempt.result;
+    }
+  }
+  return lastResult;
+}
+
+function dialEndpoint(
+  device: AvailableDevice,
+  endpoint: DeviceEndpoint,
+  options: DialOptions,
+): Promise<EndpointDialResult> {
   return new Promise((resolve) => {
     const rawSocket = new net.Socket();
     const socket = createFramedSocket(rawSocket);
     let remoteIdentity: DeviceIdentity | null = null;
-    let connectSent = false;
+    let connectionRequestSent = false;
     let settled = false;
 
-    const finish = (result: Exclude<DialResult, 'accepted'>): void => {
+    const finish = (result: ConnectionAttemptResult): void => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       options.signal?.removeEventListener('abort', onAbort);
       socket.destroy();
-      resolve(result);
+      resolve({ result, connectionRequestSent });
     };
 
     const finishAccepted = (): void => {
       if (settled || options.signal?.aborted) return;
       if (!attachSession || !remoteIdentity) {
-        finish('error');
+        finish('protocol-error');
         return;
       }
       socket.suspend();
       try {
-        attachSession(
-          socket,
-          {
-            ...device,
-            ...remoteIdentity,
-            port: device.port || TCP_PORT,
-          },
-          { inbound: false },
-        );
+        const tcpDevice = {
+          ...prioritizeDeviceEndpoint(device, endpoint),
+          ...remoteIdentity,
+        };
+        attachSession(socket, tcpDevice, { inbound: false });
       } catch (error) {
         console.error('Failed to attach accepted Session', error);
-        finish('error');
+        finish('protocol-error');
         return;
       }
       settled = true;
       clearTimeout(timer);
       options.signal?.removeEventListener('abort', onAbort);
-      resolve('accepted');
+      resolve({ result: 'accepted', connectionRequestSent });
     };
 
     const onAbort = (): void => finish('cancelled');
-    let timer = setTimeout(() => finish('error'), HANDSHAKE_TIMEOUT_MS);
+    let timer = setTimeout(() => finish('timeout'), HANDSHAKE_TIMEOUT_MS);
     options.signal?.addEventListener('abort', onAbort, { once: true });
 
-    socket.setCloseHandler(() => finish(options.signal?.aborted ? 'cancelled' : 'error'));
-    socket.setErrorHandler(() => finish(options.signal?.aborted ? 'cancelled' : 'error'));
+    socket.setCloseHandler(() => finish(options.signal?.aborted ? 'cancelled' : 'unreachable'));
+    socket.setErrorHandler(() => finish(options.signal?.aborted ? 'cancelled' : 'unreachable'));
     socket.transferTo(async (frame) => {
       if (frame.kind !== 'json' || !isHandshakeMessage(frame.message)) {
-        throw new Error('Invalid outgoing Presence handshake frame');
+        finish('protocol-error');
+        return;
       }
 
       const message = frame.message;
-      if (message.type === 'hello' && !remoteIdentity && !connectSent) {
-        if (message.uuid !== device.uuid) throw new Error('Presence identity changed during dial');
+      if (message.type === 'hello' && !remoteIdentity && !connectionRequestSent) {
+        if (message.uuid !== device.uuid) {
+          finish('protocol-error');
+          return;
+        }
         remoteIdentity = message;
-        connectSent = true;
-        await socket.sendJson(localConnect(message.uuid));
+        connectionRequestSent = true;
+        try {
+          await socket.sendJson(localConnect(message.uuid));
+        } catch {
+          finish('unreachable');
+          return;
+        }
         if (!settled) {
           clearTimeout(timer);
-          timer = setTimeout(() => finish('error'), CONNECTION_REQUEST_TIMEOUT_MS);
+          timer = setTimeout(() => finish('timeout'), CONNECTION_REQUEST_TIMEOUT_MS);
         }
         return;
       }
 
-      if (message.type === 'accept' && connectSent && message.uuid === device.uuid) {
+      if (message.type === 'accept' && connectionRequestSent && message.uuid === device.uuid) {
         finishAccepted();
         return;
       }
 
-      if (message.type === 'refuse' && connectSent && message.uuid === device.uuid) {
-        Modal.show({
-          title: '连接失败',
-          content: React.createElement(Text, null, `${message.name || device.name} 拒绝了你的连接请求`),
-          footer: React.createElement(
-            View,
-            { style: modalStyles.button },
-            React.createElement(ModalButton, { onPress: () => Modal.hide() }, '确定'),
-          ),
-        });
-        finish('refused');
+      if (message.type === 'refuse' && connectionRequestSent && message.uuid === device.uuid) {
+        finish(
+          message.reason === 'rejected'
+            ? 'refused'
+            : message.reason === 'busy'
+              ? 'busy'
+              : 'protocol-error',
+        );
         return;
       }
 
-      throw new Error('Unexpected outgoing Presence handshake message');
+      finish('protocol-error');
     });
 
     if (options.signal?.aborted) {
@@ -538,11 +575,11 @@ export function dialAndConnect(
     }
 
     try {
-      rawSocket.connect({ port: device.port || TCP_PORT, host: device.address }, () => {
-        void socket.sendJson(localHello()).catch(() => finish('error'));
+      rawSocket.connect({ port: endpoint.port || TCP_PORT, host: endpoint.address }, () => {
+        void socket.sendJson(localHello()).catch(() => finish('unreachable'));
       });
     } catch {
-      finish('error');
+      finish('unreachable');
     }
   });
 }

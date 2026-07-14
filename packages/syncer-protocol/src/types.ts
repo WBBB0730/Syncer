@@ -8,10 +8,18 @@ export interface DeviceIdentity {
   device: DeviceKind
 }
 
-export interface AvailableDevice extends DeviceIdentity {
-  port: number
+export interface DeviceEndpoint {
   address: string
+  port: number
 }
+
+export interface AvailableDevice extends DeviceIdentity {
+  endpoints: readonly DeviceEndpoint[]
+}
+
+export type ConnectionFailureReason = 'unreachable' | 'timeout' | 'busy' | 'protocol-error'
+
+export type ConnectionAttemptResult = 'accepted' | 'refused' | 'cancelled' | ConnectionFailureReason
 
 export interface ConnectionRequest {
   requestId: string
