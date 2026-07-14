@@ -11,8 +11,9 @@ out/
 .vscode/
 *.tsbuildinfo
 .eslintcache
+.test-dist/
 
-# 本地对照 / 临时检出，不入库
+# 本地迁移对照副本，不作为正式基线；固定基线为 origin/main@6355611
 syncer-desktop-legacy/
 syncer-mobile-legacy/
 syncer-desktop-original/
