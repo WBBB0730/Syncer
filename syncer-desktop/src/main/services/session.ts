@@ -91,7 +91,7 @@ async function executeCommand(command: CommandKey): Promise<void> {
   if (process.platform !== 'win32') {
     throw new Error('Command execution is only supported on Windows')
   }
-  const { executeWindowsCommand } = await import('../utils/windowsKeyboard')
+  const { executeWindowsCommand } = await import('../utils/windowsKeyboard.js')
   executeWindowsCommand(command)
 }
 
