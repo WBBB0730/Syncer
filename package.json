@@ -1,0 +1,16 @@
+{
+  "name": "syncer",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "^22.18.0 || >=24.3.0",
+    "pnpm": "11.13.0"
+  },
+  "packageManager": "pnpm@11.13.0",
+  "scripts": {
+    "release": "bumpp"
+  },
+  "devDependencies": {
+    "bumpp": "11.1.0"
+  }
+}

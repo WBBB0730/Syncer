@@ -1,0 +1,233 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-beta.[0-9]+'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  metadata:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      build_type: ${{ steps.release.outputs.build_type }}
+      prerelease: ${{ steps.release.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.1
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22.18.0
+
+      - id: release
+        name: Validate tag and project versions
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="$GITHUB_REF_NAME"
+          stable_pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$'
+          beta_pattern='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-beta\.(0|[1-9][0-9]*)$'
+
+          if [[ "$tag" =~ $stable_pattern ]]; then
+            build_type='release'
+            prerelease='false'
+          elif [[ "$tag" =~ $beta_pattern ]]; then
+            build_type='debug'
+            prerelease='true'
+          else
+            echo "Unsupported release tag: $tag" >&2
+            exit 1
+          fi
+
+          version="${tag#v}"
+          declared_versions=(
+            "$(node -p "require('./package.json').version")"
+            "$(node -p "require('./syncer-desktop/package.json').version")"
+            "$(node -p "require('./syncer-mobile/package.json').version")"
+            "$(node -p "require('./syncer-mobile/app.json').expo.version")"
+          )
+
+          for declared_version in "${declared_versions[@]}"; do
+            if [[ "$declared_version" != "$version" ]]; then
+              echo "Tag version $version does not match project version $declared_version" >&2
+              exit 1
+            fi
+          done
+
+          {
+            echo "version=$version"
+            echo "build_type=$build_type"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+
+  android:
+    name: Build Android APK
+    needs: metadata
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.1
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm --filter syncer-mobile... install --frozen-lockfile
+      - name: Build shared protocol
+        run: pnpm --filter @syncer/protocol build
+      - name: Generate Android project
+        run: pnpm --filter syncer-mobile exec expo prebuild --clean --platform android --no-install
+      - uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5.0.0
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Prepare Android release keystore
+        if: needs.metadata.outputs.build_type == 'release'
+        shell: bash
+        env:
+          SYNCER_ANDROID_KEYSTORE_BASE64: ${{ secrets.SYNCER_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$SYNCER_ANDROID_KEYSTORE_BASE64" ]]; then
+            echo 'Missing GitHub Actions secret: SYNCER_ANDROID_KEYSTORE_BASE64' >&2
+            exit 1
+          fi
+
+          keystore_path="$RUNNER_TEMP/syncer-release.jks"
+          printf '%s' "$SYNCER_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore_path"
+          chmod 600 "$keystore_path"
+          echo "SYNCER_ANDROID_KEYSTORE_FILE=$keystore_path" >> "$GITHUB_ENV"
+
+      - name: Build Android release APK
+        if: needs.metadata.outputs.build_type == 'release'
+        working-directory: syncer-mobile/android
+        shell: bash
+        env:
+          NODE_ENV: production
+          SYNCER_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.SYNCER_ANDROID_KEYSTORE_PASSWORD }}
+          SYNCER_ANDROID_KEY_ALIAS: ${{ secrets.SYNCER_ANDROID_KEY_ALIAS }}
+          SYNCER_ANDROID_KEY_PASSWORD: ${{ secrets.SYNCER_ANDROID_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Build Android debug APK
+        if: needs.metadata.outputs.build_type == 'debug'
+        working-directory: syncer-mobile/android
+        shell: bash
+        env:
+          NODE_ENV: development
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - id: apk
+        name: Collect Android APK
+        shell: bash
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+          BUILD_TYPE: ${{ needs.metadata.outputs.build_type }}
+        run: |
+          set -euo pipefail
+          source_path="syncer-mobile/android/app/build/outputs/apk/$BUILD_TYPE/app-$BUILD_TYPE.apk"
+          artifact_path="$RUNNER_TEMP/Syncer-$VERSION-android-$BUILD_TYPE.apk"
+          test -f "$source_path"
+          cp "$source_path" "$artifact_path"
+          echo "path=$artifact_path" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: syncer-android-${{ needs.metadata.outputs.version }}
+          path: ${{ steps.apk.outputs.path }}
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    name: Build Windows installer
+    needs: metadata
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.1
+      - uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm --filter syncer-desktop... install --frozen-lockfile
+      - name: Build shared protocol
+        run: pnpm --filter @syncer/protocol build
+      - name: Build Windows production installer
+        if: needs.metadata.outputs.build_type == 'release'
+        run: pnpm --filter syncer-desktop build:win
+      - name: Build Windows debug installer
+        if: needs.metadata.outputs.build_type == 'debug'
+        run: pnpm --filter syncer-desktop build:win:debug
+
+      - id: installer
+        name: Collect Windows installer
+        shell: pwsh
+        env:
+          VERSION: ${{ needs.metadata.outputs.version }}
+          BUILD_TYPE: ${{ needs.metadata.outputs.build_type }}
+        run: |
+          $sourcePath = Join-Path $PWD "syncer-desktop\dist\syncer-desktop-$env:VERSION-setup.exe"
+          $artifactPath = Join-Path $env:RUNNER_TEMP "Syncer-$env:VERSION-windows-$env:BUILD_TYPE.exe"
+          if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
+            throw "Windows installer not found: $sourcePath"
+          }
+          Copy-Item -LiteralPath $sourcePath -Destination $artifactPath
+          "path=$artifactPath" >> $env:GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: syncer-windows-${{ needs.metadata.outputs.version }}
+          path: ${{ steps.installer.outputs.path }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: Publish GitHub Release
+    needs: [metadata, android, windows]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        with:
+          pattern: syncer-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PRERELEASE: ${{ needs.metadata.outputs.prerelease }}
+        run: |
+          set -euo pipefail
+          mapfile -d '' assets < <(find release-assets -maxdepth 1 -type f -print0 | sort -z)
+          if [[ "${#assets[@]}" -ne 2 ]]; then
+            echo "Expected 2 release assets, found ${#assets[@]}" >&2
+            exit 1
+          fi
+
+          args=(--verify-tag --generate-notes --title "Syncer $GITHUB_REF_NAME")
+          if [[ "$PRERELEASE" == 'true' ]]; then
+            args+=(--prerelease --latest=false)
+          else
+            args+=(--latest)
+          fi
+
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" "${args[@]}"

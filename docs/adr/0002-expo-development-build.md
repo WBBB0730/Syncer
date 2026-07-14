@@ -8,7 +8,7 @@ Legacy mobile was a bare React Native 0.72 app. Restarting maintenance needs a s
 
 ## Decision
 
-Migrate to Expo SDK 57 with Node.js 22.18+ on 22.x or Node.js 24.3+ and a local development build workflow. The supported mobile floor is Android 10 / API 29 and iOS 16.4; iOS development and CI use Xcode 26.4+.
+Migrate to Expo SDK 57 with Node.js 22.18+ on 22.x or Node.js 24.3+ and a local development build workflow. The supported mobile floor is Android 10 / API 29 and iOS 16.4; iOS development uses Xcode 26.4+.
 
 - `expo-dev-client` + local `expo prebuild --clean` / `expo run:android` (or `expo run:ios` on macOS)
 - Keep `android/` and `ios/` as unversioned CNG output. Remove the formerly tracked generated Android project. Permissions, release signing, native providers, and other durable native configuration must come from app configuration, config plugins, or local Expo modules and survive a clean prebuild; generated projects are never edited as source.
@@ -16,7 +16,7 @@ Migrate to Expo SDK 57 with Node.js 22.18+ on 22.x or Node.js 24.3+ and a local 
 - Prefer Expo modules for file, clipboard, audio, notifications, network where they replace legacy libs; implement platform publication behind the local `syncer-storage` Expo module instead of reaching into generated projects.
 - UI keeps RNEUI where peer deps allow; otherwise RN core + `@expo/vector-icons`
 - Retain MobX store shape for parity with legacy connection flow
-- Packaging is local only; CI uses GitHub Actions (no EAS). Linux validates the Android app from a clean CNG project, while macOS runs the native Swift tests and an unsigned iOS Simulator build from a separate clean CNG project.
+- Android release artifacts are built from a clean CNG project by tag-triggered GitHub Actions. iOS packaging remains local; neither platform uses EAS.
 - Declare the iOS multicast networking entitlement in app configuration. Apple approval and a provisioning profile carrying that entitlement remain external release prerequisites; an unsigned Simulator build cannot validate real-device multicast access.
 
 ## Consequences

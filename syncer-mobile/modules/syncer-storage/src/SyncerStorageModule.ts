@@ -1,4 +1,4 @@
-import { NativeModule, requireNativeModule } from 'expo-modules-core';
+import { NativeModule, requireNativeModule } from 'expo';
 
 import type { SaveFileInput, SaveFileResult } from './SyncerStorage.types';
 

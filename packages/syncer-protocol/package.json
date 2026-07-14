@@ -18,7 +18,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "test": "npm run build && node --test tests/*.test.mjs",
+    "test": "pnpm run build && node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.esm.json"
   },
   "dependencies": {

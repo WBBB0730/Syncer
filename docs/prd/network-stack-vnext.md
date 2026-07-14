@@ -65,7 +65,7 @@
 - 单实例：Windows 打包产物连续启动两次时，第二个进程应退出并把控制权交给仍在运行的主实例，不能产生第二套 Presence/Discovery 监听与托盘。
 - 文件：覆盖多分块与多文件，按声明大小验证接收字节、跨批次暂存预算、背压、断线/拒绝清理与部分发布重试，并以接收端最终字节内容而非“已发送”日志作为断言。
 - Android：在支持下限 Android 10 / API 29 上覆盖 MediaStore `IS_PENDING` 一键保存、UTF-8 重名、精确字节数、部分成功、owned pending row 清理与历史 reopening；不保留 Android 9 文件系统路径。
-- CI 先安装、typecheck、测试并构建共享协议，再验证桌面 lint/typecheck/build，并在 Windows 运行桌面存储适配器与网络测试；Linux 从 CNG 配置生成最低 API 29 的 Android 工程后运行移动端协调器与 Metro bundle、本地存储模块测试、Lint、Release AAR、完整 debug 应用构建及 Android 10 模拟器上的 MediaStore 集成测试；macOS 26 + Xcode 26.4 运行 iOS 存储核心 Swift 测试并从独立 CNG 输出完成最低 iOS 16.4 的无签名 Simulator 构建；真机网络与 iOS multicast entitlement 仍由带正确签名配置的设备联调补充。
+- 自动发布流程不承担本节测试；这些场景按涉及平台在本地验证。
 
 ## Out of Scope
 

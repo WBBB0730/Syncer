@@ -2,7 +2,7 @@
 
 同一 Wi-Fi 下的多设备互联协作工具，支持 Windows、Android 与 iOS。
 
-[下载最新版](https://github.com/WBBB0730/Syncer/releases/tag/v1.0.0)
+[下载最新版](https://github.com/WBBB0730/Syncer/releases/latest)
 
 - 桌面端：Electron 43 + Vue 3（electron-vite）
 - 移动端：Expo SDK 57 development build（本地打包）+ `react-native-udp` / `react-native-tcp-socket`
@@ -38,43 +38,41 @@
 | Android 构建      | JDK 17 + Android SDK           |
 | iOS 构建          | macOS + Xcode 26.4             |
 
-以下命令均从仓库根目录开始执行。干净检出后必须先安装、检查并构建共享协议；两个客户端都从该构建产物解析 `@syncer/protocol`。
+项目统一使用 pnpm workspace 和根目录的单一 lockfile。以下命令均从仓库根目录执行：
+
+```bash
+pnpm install --frozen-lockfile
+```
 
 ### 共享协议
 
 ```bash
-cd packages/syncer-protocol
-npm ci
-npm run typecheck
-npm test
+pnpm --filter @syncer/protocol typecheck
+pnpm --filter @syncer/protocol test
 ```
 
 ### 桌面端
 
 ```bash
-cd syncer-desktop
-npm ci
-npm run lint
-npm run typecheck
-npm test
-npm run dev
+pnpm --filter syncer-desktop lint
+pnpm --filter syncer-desktop typecheck
+pnpm --filter syncer-desktop test
+pnpm --filter syncer-desktop dev
 ```
 
-Windows 打包：`npm run build:win`
+Windows 打包：`pnpm --filter syncer-desktop build:win`
 
 ### 移动端
 
 需要 Expo development build（不能用 Expo Go 跑满功能），本地打包：
 
 ```bash
-cd syncer-mobile
-npm ci
-npm run lint
-npm run typecheck
-npm test
-npx expo-doctor@latest
-npx expo prebuild --clean --platform android --no-install
-npx expo run:android
+pnpm --filter syncer-mobile lint
+pnpm --filter syncer-mobile typecheck
+pnpm --filter syncer-mobile test
+pnpm --filter syncer-mobile exec pnpm dlx expo-doctor@latest
+pnpm --filter syncer-mobile exec expo prebuild --clean --platform android --no-install
+pnpm --filter syncer-mobile exec expo run:android
 ```
 
 `android/` 与 `ios/` 是 [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/) 的生成目录，不提交到仓库；原生权限、正式签名和本地存储模块都由 `app.json`、config plugin 与本地 Expo module 重建。不要直接修改生成目录。
@@ -89,17 +87,20 @@ npx expo run:android
 iOS 需在 macOS 上使用 Xcode 26.4 或更高版本及 CocoaPods 构建：
 
 ```bash
-cd syncer-mobile
-npm ci
-npx expo prebuild --clean --platform ios --no-install
-npx expo run:ios
+pnpm --filter syncer-mobile exec expo prebuild --clean --platform ios --no-install
+pnpm --filter syncer-mobile exec expo run:ios
 ```
 
 真机上的 Discovery 与 Presence 还需要 Apple 为 App ID 开通 [Multicast Networking Entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.networking.multicast)，并由签名证书与 provisioning profile 携带该能力。仓库声明 entitlement，但无法代替 Apple 侧的申请与签名配置；Windows 本地环境和无签名 Simulator 构建都不能验证这项真机能力。
 
-### CI
+### 版本与发布
 
-GitHub Actions（`.github/workflows/ci.yml`）从干净检出开始，在 Node.js 22.18 与 24.3 上验证 JavaScript 工具链；覆盖协议测试与 Session 冒烟、桌面 lint/typecheck/build、Windows 桌面适配器与网络测试、unpacked 包原生模块及确定性启动、Expo Doctor、移动端 typecheck/协调器测试/Metro 打包、Android 存储模块的 JVM 测试/Lint/Release AAR/完整 debug 应用构建、Android 10 模拟器上的 MediaStore 集成测试，以及在 macOS 26 与 Xcode 26.4 上进行的 iOS 存储核心 Swift 测试和干净 CNG 输出的无签名 Simulator 构建。发布安装包仍在本地执行（桌面 `npm run build:win`，移动端对应 release 构建）；iOS 真机局域网与签名能力仍需在具备相应 provisioning profile 的设备上验证。
+版本由 [bumpp](https://github.com/antfu-collective/bumpp) 统一更新根项目、桌面端和移动端；共享协议 `@syncer/protocol` 保持独立版本。执行 `pnpm release <version>` 会创建并推送对应的 `v<version>` tag。
+
+- `v1.0.0`：构建 Android release APK 和 Windows 生产安装包，并发布正式 GitHub Release。
+- `v1.0.0-beta.0`：构建 Android debug APK 和 Windows development mode 安装包，并发布 GitHub Prerelease。
+
+GitHub Actions 只在推送上述版本 tag 时运行。Android 正式构建需要仓库配置 `SYNCER_ANDROID_KEYSTORE_BASE64`、`SYNCER_ANDROID_KEYSTORE_PASSWORD`、`SYNCER_ANDROID_KEY_ALIAS` 和 `SYNCER_ANDROID_KEY_PASSWORD` 四个 Actions secrets；iOS 暂不进入自动发布。
 
 ## 已完成的功能
 

@@ -1,0 +1,18 @@
+packages:
+  - 'packages/*'
+  - 'syncer-desktop'
+  - 'syncer-mobile'
+
+strictDepBuilds: true
+
+overrides:
+  # electron-builder 26.15.3 uses an API introduced in @electron/get 3.1.0.
+  'app-builder-lib>@electron/get': 3.1.0
+
+allowBuilds:
+  '@parcel/watcher': true
+  core-js: false
+  electron: true
+  electron-winstaller: false
+  esbuild: true
+  koffi: true
