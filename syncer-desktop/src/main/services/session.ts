@@ -3,7 +3,6 @@ import { createReadStream } from 'fs'
 import { open, rm, stat, type FileHandle } from 'fs/promises'
 import { join } from 'path'
 import { app, BrowserWindow, dialog } from 'electron'
-import { keyTap } from '@nut-tree-fork/libnut-win32'
 import {
   FILE_CHUNK_BYTES,
   FramedSocket,
@@ -88,9 +87,17 @@ const activeReceiptOperations = new Set<Promise<unknown>>()
 let receivedFileStorage: ReceivedFileStorage | null = null
 let shuttingDown = false
 
+async function executeCommand(command: CommandKey): Promise<void> {
+  if (process.platform !== 'win32') {
+    throw new Error('Command execution is only supported on Windows')
+  }
+  const { executeWindowsCommand } = await import('../utils/windowsKeyboard')
+  executeWindowsCommand(command)
+}
+
 const productionSessionRuntime: SessionRuntime = {
   emit,
-  executeCommand: (command) => keyTap(command)
+  executeCommand
 }
 
 function emitState(runtime: SessionRuntime): void {
