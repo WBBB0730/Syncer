@@ -1,17 +1,18 @@
 import { AntDesign as Icon } from '@expo/vector-icons';
 import { Button, Overlay } from '@rneui/themed';
+import type { AvailableDevice } from '@syncer/protocol';
 import { observer } from 'mobx-react';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Modal, modalStyles } from '../components/Modal';
 import { showReceiveHistory } from '../components/ReceiveHistory';
-import { sendUdpData } from '../service/udpService';
-import store, { Device } from '../store';
+import { startNetworkStack } from '../service/bootstrap';
+import store from '../store';
 import styles from '../styles/ConnectionStyles';
 import theme from '../styles/theme';
-import { getIpAddress } from '../utils/ip';
-import sleep from '../utils/sleep';
+import { FeedbackDuration, showFeedback } from '../utils/feedback';
+import { getIpv4Network, type Ipv4Network } from '../utils/ip';
 
 export default function Connection() {
   return (
@@ -37,10 +38,15 @@ const MyDeviceName = observer(() => {
     setEditingName(false);
   }
 
-  function saveName() {
+  async function saveName() {
     if (!inputName) return;
-    store.setName(inputName);
-    setEditingName(false);
+    try {
+      await store.setName(inputName);
+      setEditingName(false);
+    } catch (error) {
+      console.error('Failed to update Device Name', error);
+      showFeedback('设备名称不合法或保存失败', FeedbackDuration.LONG);
+    }
   }
 
   return (
@@ -50,13 +56,14 @@ const MyDeviceName = observer(() => {
           <View>
             <TextInput
               value={inputName}
+              maxLength={255}
               style={styles.inputName}
               placeholder="请输入设备名称"
               onChangeText={setInputName}
             />
           </View>
           <Button type="clear" icon={<Icon name="close" size={20} color={theme.brandColor} />} onPress={cancelEditName} />
-          <Button type="clear" icon={<Icon name="check" size={20} color={theme.brandColor} />} onPress={saveName} />
+          <Button type="clear" icon={<Icon name="check" size={20} color={theme.brandColor} />} onPress={() => void saveName()} />
         </>
       ) : (
         <>
@@ -76,38 +83,56 @@ const MyDeviceName = observer(() => {
   );
 });
 
+async function prepareDiscovery(): Promise<Ipv4Network | null> {
+  await startNetworkStack();
+  return getIpv4Network();
+}
+
+function reportDiscoveryFailure(error: unknown): void {
+  console.error('Device Discovery failed', error);
+  showFeedback('查找设备失败', FeedbackDuration.LONG);
+}
+
 const Search = () => {
-  const [searching, setSearching] = useState(false);
+  const [searching, setSearching] = useState(true);
   const [ipAddress, setIpAddress] = useState('');
   const [inputIpAddress, setInputIpAddress] = useState('');
-  const [flag, setFlag] = useState(false);
 
-  useEffect(() => {
-    search();
+  const runSearch = useCallback(async (ip?: string) => {
+    try {
+      const network = await prepareDiscovery();
+      setIpAddress(network?.address ?? '');
+      await store.discoverDevices(ip, network);
+    } catch (error) {
+      reportDiscoveryFailure(error);
+    } finally {
+      setSearching(false);
+    }
   }, []);
 
+  const search = useCallback(
+    (manualIp?: string): Promise<void> => {
+      setSearching(true);
+      return runSearch(manualIp);
+    },
+    [runSearch],
+  );
+
   useEffect(() => {
-    if (flag) {
-      search();
-      setFlag(false);
-    }
-  }, [flag]);
-
-  /** 查找同一局域网内的设备 */
-  async function search() {
-    getIpAddress().then(setIpAddress);
-
-    const ipAddress = /^(\d{1,3}\.){3}\d{1,3}$/.test(inputIpAddress) && inputIpAddress;
-    store.clearAvailableDeviceMap();
-
-    setSearching(true);
-    for (let i = 0; i < 5; i += 1) {
-      sendUdpData({ type: 'search' }, 5742, '255.255.255.255');
-      if (ipAddress) sendUdpData({ type: 'search' }, 5742, ipAddress);
-      await sleep(500);
-    }
-    setSearching(false);
-  }
+    let active = true;
+    void prepareDiscovery()
+      .then(async (network) => {
+        if (active) setIpAddress(network?.address ?? '');
+        await store.discoverDevices(undefined, network);
+      })
+      .catch(reportDiscoveryFailure)
+      .finally(() => {
+        if (active) setSearching(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function manualSearch() {
     Modal.show({
@@ -115,14 +140,14 @@ const Search = () => {
       content: <InputIpAddress inputIpAddress={inputIpAddress} setInputIpAddress={setInputIpAddress} />,
       footer: (
         <>
-          <Button type="outline" containerStyle={{ flexGrow: 1 }} onPress={Modal.hide}>
+          <Button type="outline" containerStyle={{ flexGrow: 1 }} onPress={() => Modal.hide()}>
             取消
           </Button>
           <Button
             containerStyle={{ flexGrow: 1 }}
             onPress={() => {
               Modal.hide();
-              setFlag(true);
+              void search(inputIpAddress);
             }}
           >
             确定
@@ -142,7 +167,7 @@ const Search = () => {
           type="outline"
           buttonStyle={styles.searchButton}
           titleStyle={styles.searchButtonText}
-          onPress={search}
+          onPress={() => void search()}
         >
           查找
         </Button>
@@ -185,10 +210,10 @@ const InputIpAddress = ({ inputIpAddress = '', setInputIpAddress }: InputIpAddre
 const AvailableDevices = observer(() => {
   return (
     <ScrollView style={styles.availableDevices}>
-      {Array.from(store.availableDeviceMap.values()).map((device: Device) => (
+      {Array.from(store.availableDeviceMap.values()).map((device: AvailableDevice) => (
         <View key={device.uuid} style={styles.availableDevice}>
           <Icon
-            name={device.device === 'desktop' ? 'laptop' : device.device === 'mobile' ? 'mobile' : 'question'}
+            name={device.device === 'desktop' ? 'desktop' : device.device === 'mobile' ? 'mobile' : 'question'}
             size={32}
             color={theme.mainTextColor}
           />
@@ -198,7 +223,11 @@ const AvailableDevices = observer(() => {
             </Text>
             <Text style={styles.availableDeviceAddress}>{device.address}</Text>
           </View>
-          <Button buttonStyle={styles.connectButton} titleStyle={styles.connectButtonText} onPress={() => store.connect(device)}>
+          <Button
+            buttonStyle={styles.connectButton}
+            titleStyle={styles.connectButtonText}
+            onPress={() => void store.requestSession(device)}
+          >
             连接
           </Button>
         </View>
@@ -217,7 +246,7 @@ const ConnectingModal = observer(() => {
       </View>
       <View style={modalStyles.footer}>
         <View style={modalStyles.button}>
-          <Button type="outline" onPress={() => store.cancel()}>
+          <Button type="outline" onPress={() => void store.cancelConnectionRequest()}>
             取消
           </Button>
         </View>

@@ -1,22 +1,24 @@
 import { AntDesign as Icon } from '@expo/vector-icons';
 import { Button, ButtonGroup, CheckBox, Input } from '@rneui/themed';
+import type { CommandKey } from '@syncer/protocol';
 import * as DocumentPicker from 'expo-document-picker';
 import { observer } from 'mobx-react';
 import React, { useEffect, useState } from 'react';
-import { Image, ScrollView, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
-import RNFS from 'react-native-fs';
+import { Image, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-import { Modal, modalStyles } from '../components/Modal';
 import { showReceiveHistory } from '../components/ReceiveHistory';
-import { sendTcpData, TcpFile } from '../service/tcpService';
+import {
+  isDeviceWhitelisted,
+  setDeviceWhitelisted,
+} from '../repositories/whitelist';
+import type { SelectedFile } from '../service/session';
 import store from '../store';
 import styles from '../styles/SendStyles';
 import theme from '../styles/theme';
+import { FeedbackDuration, showFeedback } from '../utils/feedback';
 import sleep from '../utils/sleep';
-import { getStorage, setStorage, STORAGE_KEYS } from '../utils/storage';
 
 type SendType = 'text' | 'file' | 'command';
-type WhiteList = Record<string, boolean>;
 
 export default function Send() {
   const [type, setType] = useState<SendType>('text');
@@ -24,7 +26,7 @@ export default function Send() {
   return (
     <View>
       <Target />
-      <WhiteList />
+      <Whitelist />
       <SelectType type={type} setType={setType} />
       <SendContent type={type} />
     </View>
@@ -35,10 +37,7 @@ const Target = observer(() => {
   const target = store.target;
 
   const disconnect = () => {
-    sendTcpData({
-      type: 'disconnect',
-    });
-    store.disconnect();
+    store.endSession();
   };
 
   return (
@@ -59,39 +58,39 @@ const Target = observer(() => {
   );
 });
 
-const WhiteList = () => {
-  const [isInWhiteList, setIsInWhiteList] = useState(false);
+const Whitelist = () => {
+  const [isWhitelisted, setWhitelisted] = useState(false);
 
   useEffect(() => {
-    getStorage<WhiteList>(STORAGE_KEYS.WHITE_LIST).then((whiteList) => {
-      whiteList = whiteList || {};
-      setIsInWhiteList(whiteList[store.target!.uuid] === true);
-    });
+    const targetUuid = store.target?.uuid;
+    if (!targetUuid) return;
+    void isDeviceWhitelisted(targetUuid)
+      .then(setWhitelisted)
+      .catch((error) => {
+        console.error('Failed to read Whitelist', error);
+        showFeedback('读取自动接受设置失败', FeedbackDuration.LONG);
+      });
   }, []);
 
-  async function getIsInWhiteList() {
-    const whiteList = (await getStorage<WhiteList>(STORAGE_KEYS.WHITE_LIST)) || {};
-    setIsInWhiteList(whiteList[store.target!.uuid] === true);
-  }
-
-  async function setIsInWhiteList_(next: boolean) {
-    const whiteList = (await getStorage<WhiteList>(STORAGE_KEYS.WHITE_LIST)) || {};
-    if (next) {
-      whiteList[store.target!.uuid] = true;
-    } else {
-      delete whiteList[store.target!.uuid];
+  async function updateWhitelist(next: boolean) {
+    const targetUuid = store.target?.uuid;
+    if (!targetUuid) return;
+    try {
+      const whitelist = await setDeviceWhitelisted(targetUuid, next);
+      setWhitelisted(Object.hasOwn(whitelist, targetUuid));
+    } catch (error) {
+      console.error('Failed to update Whitelist', error);
+      showFeedback('保存自动接受设置失败', FeedbackDuration.LONG);
     }
-    await setStorage(STORAGE_KEYS.WHITE_LIST, whiteList);
-    await getIsInWhiteList();
   }
 
   return (
-    <View style={styles.whiteList}>
+    <View style={styles.whitelist}>
       <CheckBox
-        checked={isInWhiteList}
+        checked={isWhitelisted}
         size={20}
         title="自动接受此设备的连接请求"
-        onPress={() => setIsInWhiteList_(!isInWhiteList)}
+        onPress={() => void updateWhitelist(!isWhitelisted)}
       />
     </View>
   );
@@ -127,12 +126,14 @@ const SendText = () => {
 
   const sendText = async () => {
     if (!text) return;
-    await sendTcpData({
-      type: 'text',
-      content: text,
-    });
-    ToastAndroid.show('发送成功', ToastAndroid.SHORT);
-    setText('');
+    try {
+      await store.sendText(text);
+      showFeedback('发送成功');
+      setText('');
+    } catch (error) {
+      console.error('Failed to send text', error);
+      showFeedback('发送失败', FeedbackDuration.LONG);
+    }
   };
 
   return (
@@ -153,40 +154,41 @@ const SendText = () => {
 };
 
 const SendFile = () => {
-  const [files, setFiles] = useState<TcpFile[]>([]);
+  const [files, setFiles] = useState<SelectedFile[]>([]);
   const [sendingFile, setSendingFile] = useState(false);
 
   async function selectFile() {
-    const result = await DocumentPicker.getDocumentAsync({
-      multiple: true,
-      copyToCacheDirectory: true,
-    });
-    if (result.canceled) return;
-
-    const newFiles: TcpFile[] = [];
-    for (const asset of result.assets) {
-      const data = await RNFS.readFile(asset.uri, 'base64');
-      newFiles.push({ name: asset.name, data });
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        multiple: true,
+      });
+      if (result.canceled) return;
+      setFiles((current) => [...current, ...result.assets]);
+    } catch (error) {
+      console.error('Failed to select files', error);
+      showFeedback('选择文件失败', FeedbackDuration.LONG);
     }
-    setFiles([...files, ...newFiles]);
   }
 
-  function removeFile(file: TcpFile) {
-    files.splice(files.indexOf(file), 1);
-    setFiles([...files]);
+  function removeFile(index: number) {
+    setFiles((current) => current.filter((_, fileIndex) => fileIndex !== index));
   }
 
   async function sendFile() {
     if (!files.length) return;
     setSendingFile(true);
-    await sleep(0);
-    await sendTcpData({
-      type: 'file',
-      content: files,
-    });
-    setSendingFile(false);
-    setFiles([]);
-    ToastAndroid.show('发送成功', ToastAndroid.SHORT);
+    try {
+      await sleep(0);
+      await store.sendFiles(files);
+      setFiles([]);
+      showFeedback('发送成功');
+    } catch (error) {
+      console.error('Failed to send files', error);
+      showFeedback('发送失败', FeedbackDuration.LONG);
+    } finally {
+      setSendingFile(false);
+    }
   }
 
   return (
@@ -205,7 +207,7 @@ const SendFile = () => {
                 name="delete"
                 size={16}
                 onPress={() => {
-                  removeFile(file);
+                  removeFile(index);
                 }}
               />
             </View>
@@ -220,11 +222,13 @@ const SendFile = () => {
 };
 
 const SendCommand = () => {
-  async function sendCommand(key: string) {
-    await sendTcpData({
-      type: 'command',
-      content: key,
-    });
+  async function sendCommand(key: CommandKey) {
+    try {
+      await store.sendCommand(key);
+    } catch (error) {
+      console.error('Failed to send command', error);
+      showFeedback('发送失败', FeedbackDuration.LONG);
+    }
   }
 
   return (
@@ -268,26 +272,12 @@ const SendCommand = () => {
 
 const SendRing = () => {
   const sendRing = async () => {
-    await sendTcpData({
-      type: 'ring',
-      content: true,
-    });
-    Modal.show({
-      title: '正在查找',
-      content: <Text>设备正在响铃...</Text>,
-      footer: (
-        <View style={modalStyles.button}>
-          <Button
-            onPress={() => {
-              sendTcpData({ type: 'ring', content: false });
-              Modal.hide();
-            }}
-          >
-            停止
-          </Button>
-        </View>
-      ),
-    });
+    try {
+      await store.setFindDeviceActive(true);
+    } catch (error) {
+      console.error('Failed to start Find Device', error);
+      showFeedback('查找设备失败', FeedbackDuration.LONG);
+    }
   };
 
   return <Button onPress={sendRing}>查找设备</Button>;

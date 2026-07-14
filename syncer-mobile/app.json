@@ -4,43 +4,72 @@
     "slug": "syncer",
     "scheme": "syncer",
     "version": "1.0.0",
-    "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.syncer"
+      "deploymentTarget": "16.4",
+      "bundleIdentifier": "org.reactjs.native.example.syncer",
+      "entitlements": {
+        "com.apple.developer.networking.multicast": true
+      },
+      "infoPlist": {
+        "CFBundleDisplayName": "syncer",
+        "NSLocalNetworkUsageDescription": "Syncer 使用本地网络查找并连接同一 Wi-Fi 下的设备。",
+        "UISupportedInterfaceOrientations": [
+          "UIInterfaceOrientationPortrait",
+          "UIInterfaceOrientationLandscapeLeft",
+          "UIInterfaceOrientationLandscapeRight"
+        ]
+      }
     },
     "android": {
       "package": "com.syncer",
+      "allowBackup": false,
       "permissions": [
         "INTERNET",
         "POST_NOTIFICATIONS",
         "VIBRATE",
         "ACCESS_WIFI_STATE",
-        "CHANGE_WIFI_MULTICAST_STATE",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "READ_MEDIA_IMAGES",
-        "READ_MEDIA_VIDEO",
-        "READ_MEDIA_AUDIO"
+        "CHANGE_WIFI_MULTICAST_STATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#fa8c16",
+        "foregroundImage": "./assets/icon.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/icon.png"
     },
     "plugins": [
       "expo-dev-client",
-      "expo-document-picker",
       "expo-notifications",
-      "expo-sharing"
+      [
+        "expo-audio",
+        {
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "./plugins/with-ios-legacy-launch-screen.js",
+      "./plugins/with-android-release-signing.js",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 29
+          }
+        }
+      ]
     ]
   }
 }

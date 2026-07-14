@@ -1,22 +1,35 @@
 import { createTheme, ThemeProvider } from '@rneui/themed';
 import { observer } from 'mobx-react';
+import { useEffect } from 'react';
 import { StatusBar, StyleSheet, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import Loading from './src/components/Loading';
 import Modal from './src/components/Modal';
 import Connection from './src/screens/Connection';
 import Send from './src/screens/Send';
+import { startNetworkStack } from './src/service/bootstrap';
 import store from './src/store';
 import theme from './src/styles/theme';
+import { configureNotifications } from './src/utils/notify';
 
 export default function App() {
+  useEffect(() => {
+    void configureNotifications().catch((error) => console.warn('Notification setup failed', error));
+    void startNetworkStack().catch((error) => console.error('Network startup failed', error));
+  }, []);
+
   return (
-    <ThemeProvider theme={elementsTheme}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.bgColorWhite} />
-      <Page />
-      <Modal />
-      <Loading />
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider theme={elementsTheme}>
+        <StatusBar barStyle="dark-content" backgroundColor={theme.bgColorWhite} />
+        <SafeAreaView style={styles.safeArea}>
+          <Page />
+        </SafeAreaView>
+        <Modal />
+        <Loading />
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 
@@ -75,6 +88,10 @@ const elementsTheme = createTheme({
 });
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: theme.bgColorWhite,
+  },
   page: {
     flexGrow: 1,
     padding: 16,

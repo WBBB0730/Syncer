@@ -1,26 +1,30 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Storage from 'react-native-storage';
 
-const storage = new Storage({
-  size: 1000,
-  storageBackend: AsyncStorage,
-  defaultExpires: null,
-  enableCache: true,
-});
+import { createSerializedStorage } from './serializedStorage';
 
-async function setStorage<T>(key: string, data: T) {
-  await storage.save({ key, data });
+const storage = createSerializedStorage(AsyncStorage);
+
+function setStorage<T>(key: string, data: T): Promise<void> {
+  return storage.set(key, data);
 }
 
-async function getStorage<T = unknown>(key: string): Promise<T | null> {
-  return storage.load({ key }).catch(() => null);
+function getStorage<T = unknown>(key: string): Promise<T | null> {
+  return storage.get<T>(key);
+}
+
+function mutateStorage<T>(
+  key: string,
+  mutate: (current: unknown | null) => T,
+): Promise<T> {
+  return storage.mutate(key, mutate);
 }
 
 const STORAGE_KEYS = {
+  IDENTITY: 'identity',
   NAME: 'name',
   UUID: 'uuid',
-  WHITE_LIST: 'whiteList',
+  WHITELIST: 'whiteList',
   RECEIVE_HISTORY: 'receiveHistory',
 } as const;
 
-export { getStorage, setStorage, STORAGE_KEYS };
+export { getStorage, mutateStorage, setStorage, STORAGE_KEYS };

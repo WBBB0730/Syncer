@@ -1,0 +1,9 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["SyncerStorageModule"]
+  },
+  "android": {
+    "modules": ["expo.modules.syncerstorage.SyncerStorageModule"]
+  }
+}

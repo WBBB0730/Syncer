@@ -17,7 +17,7 @@ export default StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
   },
-  whiteList: {
+  whitelist: {
     marginBottom: 16,
   },
   selectType: {

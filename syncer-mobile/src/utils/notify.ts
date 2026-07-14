@@ -15,14 +15,12 @@ export async function configureNotifications() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('syncer', {
       name: 'Syncer',
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.HIGH,
       enableVibrate: true,
-      // legacy createChannel: playSound: false
-      sound: undefined,
+      sound: null,
     });
+    await Notifications.requestPermissionsAsync();
   }
-
-  await Notifications.requestPermissionsAsync();
 }
 
 export function notify(title: string, content: string) {
@@ -36,5 +34,5 @@ export function notify(title: string, content: string) {
       ...(Platform.OS === 'android' ? { channelId: 'syncer' } : {}),
     },
     trigger: null,
-  }).catch(() => undefined);
+  }).catch((error) => console.warn('Failed to schedule notification', error));
 }

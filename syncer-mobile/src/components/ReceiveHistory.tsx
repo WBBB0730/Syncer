@@ -1,20 +1,19 @@
 import { AntDesign as Icon } from '@expo/vector-icons';
 import { Button, CheckBox } from '@rneui/themed';
-import FileViewer from 'react-native-file-viewer';
-import RNFS from 'react-native-fs';
 import moment from 'moment';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, Text, ToastAndroid, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
-import { Modal, modalStyles } from './Modal';
+import SyncerStorage from '../../modules/syncer-storage';
+import {
+  readReceiveHistory,
+  removeReceiveHistory,
+  type ReceiveHistoryItem,
+} from '../repositories/receiveHistory';
 import styles from '../styles/ReceiveHistoryStyles';
 import theme from '../styles/theme';
-import { getStorage, setStorage, STORAGE_KEYS } from '../utils/storage';
-
-export type ReceiveHistoryItem = {
-  name: string;
-  time: number;
-};
+import { FeedbackDuration, showFeedback } from '../utils/feedback';
+import { Modal, modalStyles } from './Modal';
 
 type ReceiveHistoryStateItem = ReceiveHistoryItem & {
   selected: boolean;
@@ -26,13 +25,14 @@ const ReceiveHistory = () => {
   const [receiveHistory, setReceiveHistory] = useState<ReceiveHistoryStateItem[]>([]);
   const [pageIndex, setPageIndex] = useState(1);
   const [selecting, setSelecting] = useState(false);
-  const [path] = useState(RNFS.DownloadDirectoryPath + '/Syncer/');
+  const path = SyncerStorage.downloadsPath;
 
   useEffect(() => {
-    getStorage<ReceiveHistoryItem[]>(STORAGE_KEYS.RECEIVE_HISTORY).then((res) => {
-      const temp = res?.map((item) => ({ ...item, selected: false })) || [];
-      setReceiveHistory(temp);
-    });
+    void readReceiveHistory()
+      .then((history) => {
+        setReceiveHistory(history.map((item) => ({ ...item, selected: false })));
+      })
+      .catch((error) => console.error('Failed to read Receive History', error));
   }, []);
 
   const selectedList = receiveHistory.filter((item) => item.selected);
@@ -60,22 +60,26 @@ const ReceiveHistory = () => {
   }
 
   async function deleteSelectedItems() {
-    const remainList = receiveHistory.filter((item) => !item.selected);
-    setReceiveHistory(remainList);
-    await setStorage(STORAGE_KEYS.RECEIVE_HISTORY, remainList);
-    setSelecting(false);
+    try {
+      const remaining = await removeReceiveHistory(selectedList);
+      setReceiveHistory(remaining.map((item) => ({ ...item, selected: false })));
+      setSelecting(false);
+    } catch (error) {
+      console.error('Failed to update Receive History', error);
+      showFeedback('删除失败', FeedbackDuration.LONG);
+    }
   }
 
-  async function handlePressItem(name: string, index: number) {
+  async function handlePressItem(item: ReceiveHistoryItem, index: number) {
     if (selecting) {
       handleSelectItem(index);
       return;
     }
-    if (!(await RNFS.exists(path + name))) {
-      ToastAndroid.show('文件不存在', ToastAndroid.SHORT);
-      return;
+    try {
+      await SyncerStorage.openFileAsync(item.locator);
+    } catch {
+      showFeedback('文件不存在');
     }
-    await FileViewer.open(path + name);
   }
 
   const listItems = receiveHistory.slice(0, pageIndex * PAGE_SIZE).map((item, index) => (
@@ -83,7 +87,7 @@ const ReceiveHistory = () => {
       key={index}
       style={styles.item}
       activeOpacity={0.5}
-      onPress={() => handlePressItem(item.name, index)}
+      onPress={() => handlePressItem(item, index)}
     >
       {selecting ? (
         <CheckBox checked={item.selected} size={20} onPress={() => handleSelectItem(index)} />
@@ -146,7 +150,7 @@ export function showReceiveHistory() {
     content: <ReceiveHistory />,
     footer: (
       <View style={modalStyles.button}>
-        <Button onPress={Modal.hide}>关闭</Button>
+        <Button onPress={() => Modal.hide()}>关闭</Button>
       </View>
     ),
   });
