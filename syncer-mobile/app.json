@@ -3,7 +3,7 @@
     "name": "Syncer",
     "slug": "syncer",
     "scheme": "syncer",
-    "version": "2.0.0-beta.1",
+    "version": "2.0.0-beta.2",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
