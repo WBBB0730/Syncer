@@ -3,7 +3,7 @@
     "name": "Syncer",
     "slug": "syncer",
     "scheme": "syncer",
-    "version": "2.0.0-beta.2",
+    "version": "2.0.0-beta.3",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
@@ -14,7 +14,6 @@
         "com.apple.developer.networking.multicast": true
       },
       "infoPlist": {
-        "CFBundleDisplayName": "syncer",
         "NSAlarmKitUsageDescription": "用于在你通过已连接设备查找本机时发出系统响铃。",
         "NSLocalNetworkUsageDescription": "Syncer 使用本地网络查找并连接同一 Wi-Fi 下的设备。",
         "UISupportedInterfaceOrientations": [
