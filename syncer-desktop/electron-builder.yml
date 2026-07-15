@@ -22,7 +22,10 @@ electronFuses:
   grantFileProtocolExtraPrivileges: false
 win:
   executableName: Syncer
-  icon: build/icon.ico
+  icon: icon.ico
+  extraResources:
+    - from: build/icon.ico
+      to: icon.ico
 mac:
   appId: com.wbbb.syncer.desktop
   identity: '-'

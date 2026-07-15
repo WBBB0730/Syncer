@@ -161,7 +161,7 @@ jobs:
         run: |
           set -euo pipefail
           source_path="syncer-mobile/android/app/build/outputs/apk/release/app-release.apk"
-          artifact_path="$RUNNER_TEMP/Syncer-$VERSION-android-release.apk"
+          artifact_path="$RUNNER_TEMP/Syncer-$VERSION-android.apk"
           test -f "$source_path"
           cp "$source_path" "$artifact_path"
           echo "path=$artifact_path" >> "$GITHUB_OUTPUT"
@@ -194,7 +194,7 @@ jobs:
           path: |
             ${{ env.electron_config_cache }}
             ${{ env.ELECTRON_BUILDER_CACHE }}
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.yml') }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.yml', 'syncer-desktop/electron-builder.config.cjs') }}
           restore-keys: |
             electron-${{ runner.os }}-${{ runner.arch }}-
 
@@ -212,7 +212,7 @@ jobs:
           VERSION: ${{ needs.metadata.outputs.version }}
         run: |
           $sourcePath = Join-Path $PWD "syncer-desktop\dist\syncer-desktop-$env:VERSION-setup.exe"
-          $artifactPath = Join-Path $env:RUNNER_TEMP "Syncer-$env:VERSION-windows-release.exe"
+          $artifactPath = Join-Path $env:RUNNER_TEMP "Syncer-$env:VERSION-windows.exe"
           if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
             throw "Windows installer not found: $sourcePath"
           }

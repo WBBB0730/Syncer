@@ -49,6 +49,16 @@ let networkStarted = false
 let applicationReady = false
 let quitting = false
 let allowQuit = false
+const applicationName = /-beta\.\d+$/.test(app.getVersion()) ? 'Syncer Beta' : 'Syncer'
+
+app.setName(applicationName)
+
+const windowIcon =
+  process.platform === 'win32'
+    ? is.dev
+      ? resolve(__dirname, '../../build/icon.ico')
+      : join(process.resourcesPath, 'icon.ico')
+    : icon
 
 function showPrimaryWindow(): void {
   if (!applicationReady || !mainWindow) return
@@ -62,8 +72,8 @@ async function createWindow(): Promise<void> {
     width: 800,
     height: 600,
     show: false,
-    title: 'Syncer',
-    icon,
+    title: applicationName,
+    icon: windowIcon,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
@@ -84,6 +94,10 @@ async function createWindow(): Promise<void> {
   })
   window.on('closed', () => {
     if (mainWindow === window) mainWindow = null
+  })
+  window.on('page-title-updated', (event) => {
+    event.preventDefault()
+    window.setTitle(applicationName)
   })
 
   const openExternal = (url: string): void => {
@@ -164,11 +178,11 @@ function createTray(): void {
   const resolvedTrayIcon = trayIcon.isEmpty() ? nativeImage.createFromPath(icon) : trayIcon
   if (process.platform === 'darwin') resolvedTrayIcon.setTemplateImage(true)
   tray = new Tray(resolvedTrayIcon.isEmpty() ? icon : resolvedTrayIcon)
-  tray.setToolTip('Syncer')
+  tray.setToolTip(applicationName)
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
-        label: '打开 Syncer',
+        label: `打开 ${applicationName}`,
         click: showPrimaryWindow
       },
       { type: 'separator' },

@@ -1,8 +1,6 @@
-!define DIR_NAME "Syncer"
-
 Function .onVerifyInstDir
-  StrLen $0 "\${DIR_NAME}"
+  StrLen $0 "\${PRODUCT_NAME}"
   StrCpy $1 "$INSTDIR" "" -$0
-  StrCmp $1 "\${DIR_NAME}" +2 0
-  StrCpy $INSTDIR "$INSTDIR\${DIR_NAME}"
+  StrCmp $1 "\${PRODUCT_NAME}" +2 0
+  StrCpy $INSTDIR "$INSTDIR\${PRODUCT_NAME}"
 FunctionEnd

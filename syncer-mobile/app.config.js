@@ -1,21 +1,35 @@
-const ANDROID_PACKAGES = {
-  production: 'com.wbbb.syncer',
-  beta: 'com.wbbb.syncer.beta',
+const RELEASE_CHANNELS = {
+  production: {
+    name: 'Syncer',
+    androidPackage: 'com.wbbb.syncer',
+  },
+  beta: {
+    name: 'Syncer Beta',
+    androidPackage: 'com.wbbb.syncer.beta',
+  },
 };
 
 module.exports = ({ config }) => {
   const releaseChannel = process.env.SYNCER_RELEASE_CHANNEL ?? 'beta';
-  const androidPackage = ANDROID_PACKAGES[releaseChannel];
+  const channel = RELEASE_CHANNELS[releaseChannel];
 
-  if (!androidPackage) {
+  if (!channel) {
     throw new Error(`Unsupported Syncer release channel: ${releaseChannel}`);
   }
 
   return {
     ...config,
+    name: channel.name,
+    ios: {
+      ...config.ios,
+      infoPlist: {
+        ...config.ios?.infoPlist,
+        CFBundleDisplayName: channel.name,
+      },
+    },
     android: {
       ...config.android,
-      package: androidPackage,
+      package: channel.androidPackage,
     },
   };
 };

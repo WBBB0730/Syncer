@@ -28,7 +28,7 @@ Syncer 桌面端与移动端长期停留在已过时的脚手架与运行时（E
 - iOS 真机 Discovery / Presence 依赖 Apple 批准的 Multicast Networking Entitlement 及包含该能力的 provisioning profile；仓库只能声明配置，不能代替外部申请与签名。
 - 网络与 Session 模型遵循 ADR-0004，线协议遵循 ADR-0005，File Transfer 资源模型遵循 ADR-0006，Android 公共下载保存遵循 ADR-0007。
 - Android 正式版使用 `com.wbbb.syncer` 与独立的 Production Key，Beta 使用 `com.wbbb.syncer.beta` 与独立的 Beta Key；两者可并存安装且不共享应用数据或签名身份，详见 ADR-0008。
-- 版本由 bumpp 统一更新根项目、桌面端与移动端，共享协议保持独立版本；`main` push 与 pull request 触发持续集成，只在推送 `vX.Y.Z` 或 `vX.Y.Z-beta.N` tag 时触发自动发布。两种 tag 都生成 Android release APK 与 Windows 生产安装包，Beta 通过独立发布身份与 GitHub Prerelease 区分。CI 额外构建 macOS x64/arm64 DMG，并校验其中 ad-hoc 签名的应用包；在 Developer ID、Hardened Runtime 与 notarization 凭据配置前，macOS 与 iOS 都不进入自动发布。
+- 版本由 bumpp 统一更新根项目、桌面端与移动端，共享协议保持独立版本；`main` push 与 pull request 触发持续集成，只在推送 `vX.Y.Z` 或 `vX.Y.Z-beta.N` tag 时触发自动发布。两种 tag 都生成 Android release APK 与 Windows 生产安装包；Beta 在 Android、iOS、Windows 与 macOS 上统一显示为 `Syncer Beta`，并通过独立发布身份与 GitHub Prerelease 区分，正式版显示为 `Syncer`。CI 额外构建 macOS x64/arm64 DMG，并校验其中 ad-hoc 签名的应用包；在 Developer ID、Hardened Runtime 与 notarization 凭据配置前，macOS 与 iOS 都不进入自动发布。
 
 ## Testing Decisions
 
