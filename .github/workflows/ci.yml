@@ -94,7 +94,7 @@ jobs:
           path: |
             ${{ env.electron_config_cache }}
             ${{ env.ELECTRON_BUILDER_CACHE }}
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.yml', 'syncer-desktop/electron-builder.config.cjs') }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.config.mjs') }}
           restore-keys: |
             electron-${{ runner.os }}-${{ runner.arch }}-
 
@@ -142,7 +142,7 @@ jobs:
           path: |
             ${{ env.electron_config_cache }}
             ${{ env.ELECTRON_BUILDER_CACHE }}
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.yml', 'syncer-desktop/electron-builder.config.cjs') }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.config.mjs') }}
           restore-keys: |
             electron-${{ runner.os }}-${{ runner.arch }}-
 
@@ -157,7 +157,7 @@ jobs:
       - name: Verify architecture-specific DMGs
         shell: bash
         run: |
-          product_name="$(node -p "require('./syncer-desktop/electron-builder.config.cjs').productName")"
+          product_name="$(node --input-type=module -e "import { productName } from './syncer-desktop/electron-builder.config.mjs'; process.stdout.write(productName)")"
           x64_app="syncer-desktop/dist/mac/$product_name.app"
           arm64_app="syncer-desktop/dist/mac-arm64/$product_name.app"
           test "$(find syncer-desktop/dist -maxdepth 1 -type f -name '*-x64.dmg' | wc -l | tr -d ' ')" = '1'

@@ -20,10 +20,10 @@
     "dev": "electron-vite dev",
     "build": "pnpm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
-    "build:unpack": "pnpm run build && electron-builder --config electron-builder.config.cjs --dir",
-    "build:mac": "pnpm run build && electron-builder --config electron-builder.config.cjs --mac --x64 --arm64 --publish never",
-    "build:win": "pnpm run build && electron-builder --config electron-builder.config.cjs --win --publish never",
-    "build:win:debug": "pnpm run typecheck && electron-vite build --mode development && electron-builder --config electron-builder.config.cjs --win --publish never"
+    "build:unpack": "pnpm run build && electron-builder --config electron-builder.config.mjs --dir",
+    "build:mac": "pnpm run build && electron-builder --config electron-builder.config.mjs --mac --x64 --arm64 --publish never",
+    "build:win": "pnpm run build && electron-builder --config electron-builder.config.mjs --win --publish never",
+    "build:win:debug": "pnpm run typecheck && electron-vite build --mode development && electron-builder --config electron-builder.config.mjs --win --publish never"
   },
   "dependencies": {
     "@ant-design/icons-vue": "^7.0.1",

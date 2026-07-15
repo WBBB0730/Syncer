@@ -1,0 +1,72 @@
+import packageJson from './package.json' with { type: 'json' }
+
+export const productName = /-beta\.\d+$/.test(packageJson.version) ? 'Syncer Beta' : 'Syncer'
+
+export default {
+  appId: 'Syncer',
+  productName,
+  directories: {
+    buildResources: 'build'
+  },
+  files: [
+    '!**/.vscode/*',
+    '!src/*',
+    '!scripts/*',
+    '!tests/*',
+    '!electron.vite.config.{js,ts,mjs,cjs}',
+    '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}',
+    '!{.env,.env.*,.npmrc,pnpm-lock.yaml}',
+    '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json,tsconfig.test.json}'
+  ],
+  asarUnpack: ['resources/**'],
+  electronFuses: {
+    runAsNode: false,
+    enableNodeOptionsEnvironmentVariable: false,
+    enableNodeCliInspectArguments: false,
+    enableEmbeddedAsarIntegrityValidation: true,
+    onlyLoadAppFromAsar: true,
+    grantFileProtocolExtraPrivileges: false
+  },
+  win: {
+    executableName: productName,
+    icon: 'icon.ico',
+    extraResources: [
+      {
+        from: 'build/icon.ico',
+        to: 'icon.ico'
+      }
+    ]
+  },
+  mac: {
+    appId: 'com.wbbb.syncer.desktop',
+    identity: '-',
+    hardenedRuntime: false,
+    entitlements: 'build/entitlements.mac.plist',
+    entitlementsInherit: 'build/entitlements.mac.plist',
+    icon: 'build/icon.icns',
+    category: 'public.app-category.utilities',
+    minimumSystemVersion: '14.0',
+    target: [
+      {
+        target: 'dmg',
+        arch: ['x64', 'arm64']
+      }
+    ],
+    artifactName: '${name}-${version}-${arch}.${ext}',
+    extendInfo: {
+      NSLocalNetworkUsageDescription: 'Syncer 使用本地网络发现并连接同一局域网内的设备。'
+    }
+  },
+  nsis: {
+    oneClick: false,
+    allowToChangeInstallationDirectory: true,
+    createDesktopShortcut: 'always',
+    perMachine: true,
+    allowElevation: true,
+    shortcutName: productName,
+    artifactName: '${name}-${version}-setup.${ext}',
+    uninstallDisplayName: '${productName}',
+    include: 'build/installer.nsh'
+  },
+  npmRebuild: true
+}

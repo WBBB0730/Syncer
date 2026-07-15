@@ -194,7 +194,7 @@ jobs:
           path: |
             ${{ env.electron_config_cache }}
             ${{ env.ELECTRON_BUILDER_CACHE }}
-          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.yml', 'syncer-desktop/electron-builder.config.cjs') }}
+          key: electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml', 'syncer-desktop/electron-builder.config.mjs') }}
           restore-keys: |
             electron-${{ runner.os }}-${{ runner.arch }}-
 
